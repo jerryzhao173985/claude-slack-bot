@@ -1,0 +1,129 @@
+name: Claude Code Processor Ultimate
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      mcp_tools:
+        description: "Comma-separated list of MCP tools to enable"
+        required: false
+        type: string
+        default: "slack"
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "System prompt with thread context"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Create outputs directory
+        run: mkdir -p outputs
+      
+      - name: Run Claude Code with Proper Permissions
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            You are a helpful Slack bot assistant. A user has asked you a question in Slack.
+            
+            User question: ${{ github.event.inputs.question }}
+            
+            Please provide a helpful and concise response to the user's question.
+            
+            IMPORTANT: 
+            1. First, use the mcp__slack__slack_reply_to_thread tool to send your response:
+               - channel_id: "${{ github.event.inputs.slack_channel }}"
+               - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
+               - text: Your complete response
+            
+            2. If that fails, save your response to: outputs/slack_response.txt
+            
+            Make sure to provide a complete, helpful answer to the user's question.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: claude-3-5-sonnet-20241022
+          # Correct comma-separated format with all necessary tools
+          allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "slack": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-slack"],
+                  "env": {
+                    "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
+                    "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}"
+                  }
+                }
+              }
+            }
+          max_turns: 15
+          claude_env: |
+            ANTHROPIC_PROMPT_CACHING=1
+            CLAUDE_CODE_AUTORUN_TOOLS=true
+      
+      - name: Update Slack if MCP failed
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Check if response file was created (fallback)
+          if [ -f "outputs/slack_response.txt" ]; then
+            echo "Found fallback response file"
+            RESPONSE=$(cat outputs/slack_response.txt)
+          else
+            # Check for any response in the logs
+            echo "No response file found"
+            RESPONSE=""
+          fi
+          
+          # Only update if we have a response (MCP might have already handled it)
+          if [ -n "$RESPONSE" ]; then
+            ESCAPED_RESPONSE=$(echo "$RESPONSE" | jq -Rs .)
+            
+            echo "Updating Slack message with fallback..."
+            UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+                \"text\": $ESCAPED_RESPONSE
+              }")
+            
+            if echo "$UPDATE_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+              echo "✅ Updated via fallback"
+            else
+              echo "Fallback update failed, posting as reply..."
+              curl -X POST https://slack.com/api/chat.postMessage \
+                -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                  \"thread_ts\": \"${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}\",
+                  \"text\": $ESCAPED_RESPONSE
+                }"
+            fi
+          else
+            echo "No fallback needed - MCP likely handled the response"
+          fi
