@@ -40,26 +40,66 @@ jobs:
       
       - name: Prepare MCP configuration
         run: |
-          bash scripts/prepare-mcp-config.sh
-        env:
-          NOTION_API_KEY: ${{ secrets.NOTION_KEY }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_TEAM_ID: ${{ secrets.SLACK_TEAM_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          cat > mcp-config.json <<'EOF'
+          {
+            "mcpServers": {
+              "slack": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-slack"],
+                "env": {
+                  "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
+                  "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}"
+                }
+              },
+              "github": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-github"],
+                "env": {
+                  "GITHUB_TOKEN": "${{ secrets.GH_TOKEN }}"
+                }
+              },
+              "notionApi": {
+                "command": "npx",
+                "args": ["-y", "@notionhq/notion-mcp-server"],
+                "env": {
+                  "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                }
+              }
+            }
+          }
+          EOF
+          echo "MCP configuration created"
       
       - name: Run Claude Code
         uses: anthropics/claude-code-base-action@beta
         with:
           prompt: |
+            You are helping a user in Slack. Here is the context:
             ${{ github.event.inputs.system_prompt }}
             
             User question: ${{ github.event.inputs.question }}
             
-            Important: When you have finished processing the user's request, you MUST update the Slack message using the mcp__slack__chat_update tool with these parameters:
-            - channel: ${{ github.event.inputs.slack_channel }}
-            - ts: ${{ github.event.inputs.slack_ts }}
-            - text: Your final response to the user
+            Please provide a helpful response to the user's question.
+            
+            CRITICAL: After you have prepared your response, you MUST update the Slack message by calling the mcp__slack__chat_update tool with these parameters:
+            - channel: "${{ github.event.inputs.slack_channel }}"
+            - ts: "${{ github.event.inputs.slack_ts }}"
+            - text: (your complete response to the user)
+            
+            The mcp__slack__chat_update call should be your FINAL action.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          mcp_config_path: "./mcp-config.json"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "slack": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-slack"],
+                  "env": {
+                    "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
+                    "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}"
+                  }
+                }
+              }
+            }
           allowed_tools: "${{ github.event.inputs.mcp_tools }},Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
-          max_turns: 5
+          max_turns: 10

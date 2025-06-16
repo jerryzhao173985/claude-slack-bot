@@ -5,7 +5,6 @@ import { secureHeaders } from 'hono/secure-headers';
 import { requestId } from 'hono/request-id';
 import { Env } from './types/env';
 import { slackRoutes } from './routes/slack';
-import { slackTempRoutes } from './routes/slack-temp';
 import { healthRoutes } from './routes/health';
 import { docsRoutes } from './routes/docs';
 

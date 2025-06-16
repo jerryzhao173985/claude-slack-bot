@@ -34,4 +34,3 @@ cat > mcp-config.json <<EOF
 EOF
 
 echo "MCP configuration written to mcp-config.json"
-cat mcp-config.json
