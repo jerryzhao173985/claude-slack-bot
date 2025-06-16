@@ -53,7 +53,7 @@ else
     echo -e "${RED}❌ Notion MCP server missing${NC}"
 fi
 
-if grep -q "mcp__notionApi__create_page" .github/workflows/claude-code-processor-ultimate.yml; then
+if grep -q "mcp__notionApi__API-post-search" .github/workflows/claude-code-processor-ultimate.yml; then
     echo -e "${GREEN}✅ Notion tools in allowed_tools${NC}"
 else
     echo -e "${YELLOW}⚠️  Notion tools not in allowed_tools${NC}"
