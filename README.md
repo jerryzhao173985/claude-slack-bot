@@ -68,7 +68,7 @@ Edit `wrangler.toml`:
 [vars]
 GITHUB_OWNER = "your-github-username"
 GITHUB_REPO = "your-repo-name"
-GITHUB_WORKFLOW_FILE = "claude-code-processor.yml"
+GITHUB_WORKFLOW_FILE = "claude-code-processor-ultimate.yml"
 
 [[kv_namespaces]]
 binding = "THREAD_CACHE"
@@ -215,7 +215,7 @@ npm run typecheck
 
 - Modify `src/services/eventHandler.ts` to change tool selection logic
 - Update `src/services/githubDispatcher.ts` to customize system prompts
-- Edit workflow in `.github/workflows/claude-code-processor.yml`
+- Edit workflow in `.github/workflows/claude-code-processor-ultimate.yml`
 
 ## Troubleshooting
 
@@ -234,14 +234,10 @@ npm run typecheck
    - Verify Slack app is properly configured
    - Ensure bot is invited to the channel
 
-4. **Claude not updating Slack messages properly**
-   - **Root Cause**: MCP Slack server doesn't have a message update tool
-   - **Solution**: Use the best workflow that handles this properly:
-     ```bash
-     wrangler secret put GITHUB_WORKFLOW_FILE --value "claude-code-processor-best.yml"
-     ```
-   - This workflow asks Claude to save responses to a file, then updates Slack
-   - See `SOLUTION.md` for full details
+4. **Model selection not working**
+   - Ensure you've deployed the latest Worker: `wrangler deploy`
+   - Check that `wrangler.toml` uses `claude-code-processor-ultimate.yml`
+   - Verify the model name in your Slack message is valid
 
 ### Debug Commands
 
