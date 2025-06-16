@@ -46,15 +46,6 @@ jobs:
       - name: Create outputs directory
         run: mkdir -p outputs
       
-      - name: Prepare MCP Configuration
-        run: |
-          bash scripts/prepare-mcp-config.sh
-        env:
-          NOTION_API_KEY: ${{ secrets.NOTION_KEY }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_TEAM_ID: ${{ secrets.SLACK_TEAM_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      
       - name: Run Claude Code with Proper Permissions
         uses: anthropics/claude-code-base-action@beta
         with:
@@ -93,7 +84,33 @@ jobs:
           anthropic_model: ${{ github.event.inputs.model }}
           # Correct comma-separated format with all necessary tools including Notion
           allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,mcp__notionApi__create_page,mcp__notionApi__retrieve_page,mcp__notionApi__search,mcp__notionApi__append_block_children,mcp__notionApi__retrieve_block_children,mcp__notionApi__query_database,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
-          mcp_config_path: "./mcp-config.json"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y","@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                },
+                "slack": {
+                  "command": "npx",
+                  "args": ["-y","@modelcontextprotocol/server-slack"],
+                  "env": { 
+                    "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
+                    "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}" 
+                  }
+                },
+                "github": {
+                  "command": "npx",
+                  "args": ["-y","@modelcontextprotocol/server-github"],
+                  "env": { 
+                    "GITHUB_TOKEN": "${{ secrets.GH_TOKEN }}" 
+                  }
+                }
+              }
+            }
           max_turns: 15
           claude_env: |
             ANTHROPIC_PROMPT_CACHING=1
