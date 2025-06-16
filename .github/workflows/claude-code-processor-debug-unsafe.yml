@@ -41,4 +41,5 @@ jobs:
               }
             }
           max_turns: 3
-          dangerously_skip_permissions: true
+          claude_env: |
+            CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true
