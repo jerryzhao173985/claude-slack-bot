@@ -8,8 +8,8 @@ name = "claude-slack-bot"
 
 [[kv_namespaces]]
 binding = "THREAD_CACHE"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_PREVIEW_ID"
+id = "43889703c89e4e1696ac47b11eb70c0d"
+preview_id = "26ffe07d64f344a8a2bb78df08de57fb"
 
 [vars]
 GITHUB_OWNER = "jerryzhao173985"
