@@ -1,0 +1,122 @@
+name: Claude Code Processor Final
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "System prompt with thread context"
+        required: false
+        type: string
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Process and Update Slack
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Build the prompt
+          if [ -n "${{ github.event.inputs.system_prompt }}" ]; then
+            FULL_PROMPT="${{ github.event.inputs.system_prompt }}
+          
+          User question: ${{ github.event.inputs.question }}
+          
+          Please provide a helpful, concise response."
+          else
+            FULL_PROMPT="You are a helpful Slack bot assistant. Please provide a concise response to: ${{ github.event.inputs.question }}"
+          fi
+          
+          # Create Claude API request
+          cat > request.json << EOFPAYLOAD
+          {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 1000,
+            "messages": [{
+              "role": "user",
+              "content": "$(echo "$FULL_PROMPT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"
+            }]
+          }
+          EOFPAYLOAD
+          
+          # Call Claude API
+          echo "Calling Claude API..."
+          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @request.json)
+          
+          # Extract response text
+          RESPONSE_TEXT=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text // empty')
+          
+          if [ -z "$RESPONSE_TEXT" ]; then
+            RESPONSE_TEXT="I apologize, but I encountered an error processing your request. Please try again."
+            echo "Error in Claude response:"
+            echo "$CLAUDE_RESPONSE" | jq '.'
+          else
+            echo "Claude responded successfully"
+          fi
+          
+          # Save response for debugging
+          echo "$RESPONSE_TEXT" > response.txt
+          
+          # Update Slack message
+          echo "Updating Slack message..."
+          jq -n \
+            --arg channel "${{ github.event.inputs.slack_channel }}" \
+            --arg ts "${{ github.event.inputs.slack_ts }}" \
+            --arg text "$RESPONSE_TEXT" \
+            '{channel: $channel, ts: $ts, text: $text}' > slack_update.json
+          
+          UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @slack_update.json)
+          
+          # Check if update was successful
+          if echo "$UPDATE_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+            echo "✅ Successfully updated Slack message!"
+            echo "Response sent: $RESPONSE_TEXT"
+          else
+            echo "❌ Failed to update Slack message"
+            echo "Error: $(echo "$UPDATE_RESULT" | jq -r '.error // "unknown"')"
+            
+            # Try posting as a reply
+            echo "Attempting to post as reply..."
+            jq -n \
+              --arg channel "${{ github.event.inputs.slack_channel }}" \
+              --arg thread_ts "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}" \
+              --arg text "$RESPONSE_TEXT" \
+              '{channel: $channel, thread_ts: $thread_ts, text: $text}' > slack_reply.json
+            
+            REPLY_RESULT=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @slack_reply.json)
+            
+            if echo "$REPLY_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+              echo "✅ Posted as reply successfully"
+            else
+              echo "❌ Failed to post reply: $(echo "$REPLY_RESULT" | jq -r '.error // "unknown"')"
+            fi
+          fi

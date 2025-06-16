@@ -28,7 +28,7 @@ I've created two new workflows that avoid these issues:
 wrangler secret delete GITHUB_WORKFLOW_FILE
 wrangler secret put GITHUB_WORKFLOW_FILE
 ```
-When prompted, enter: `claude-simple-working.yml`
+When prompted, enter: `claude-code-processor-final.yml`
 
 ### 2. Push the new workflows to GitHub:
 ```bash
