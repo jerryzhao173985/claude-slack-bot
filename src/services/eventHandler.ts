@@ -46,6 +46,13 @@ export class EventHandler {
       const tools = this.extractMCPTools(text);
       const question = this.extractQuestion(text);
 
+      // Log placeholder details for debugging
+      this.logger.info('Placeholder message created', {
+        placeholderTs: placeholder.ts,
+        channel: placeholder.channel,
+        threadTs: thread_ts || ts
+      });
+
       // Dispatch to GitHub Actions
       await this.githubDispatcher.dispatchWorkflow({
         question,

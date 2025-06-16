@@ -1,4 +1,4 @@
-name: Claude Code Processor
+name: Claude Code Processor Update
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       slack_ts:
-        description: "Slack message timestamp (placeholder)"
+        description: "Slack message timestamp to update"
         required: true
         type: string
       slack_thread_ts:
@@ -41,7 +41,7 @@ jobs:
       - name: Debug inputs
         run: |
           echo "Channel: ${{ github.event.inputs.slack_channel }}"
-          echo "Message TS: ${{ github.event.inputs.slack_ts }}"
+          echo "Message TS to update: ${{ github.event.inputs.slack_ts }}"
           echo "Thread TS: ${{ github.event.inputs.slack_thread_ts }}"
           echo "Question: ${{ github.event.inputs.question }}"
       
@@ -49,18 +49,21 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           prompt: |
-            You are a helpful Slack bot assistant. A user has asked you a question in Slack.
+            You are a helpful Slack bot assistant responding to a user question.
             
             User question: ${{ github.event.inputs.question }}
             
-            Please provide a helpful and concise response to the user's question.
+            IMPORTANT INSTRUCTIONS:
+            1. Answer the user's question concisely and helpfully
+            2. You MUST update the existing Slack message (not create a new one)
+            3. Use the mcp__slack__chat_update tool with these EXACT parameters:
+               - channel: "${{ github.event.inputs.slack_channel }}"
+               - ts: "${{ github.event.inputs.slack_ts }}"
+               - text: Your complete response
             
-            After you've prepared your response, you need to send it to Slack. Use the mcp__slack__slack_reply_to_thread tool with these parameters:
-            - channel_id: "${{ github.event.inputs.slack_channel }}"
-            - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
-            - text: Your complete response to the user
+            The message timestamp "${{ github.event.inputs.slack_ts }}" is the placeholder message that says "Working on your request..." - you need to replace it with your answer.
             
-            Make sure to call the Slack reply tool as your final action.
+            DO NOT use slack_post_message or slack_reply_to_thread - ONLY use chat_update.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: claude-3-7-sonnet-20250219
           mcp_config: |
@@ -76,8 +79,9 @@ jobs:
                 }
               }
             }
-          allowed_tools: "ALL"
-          max_turns: 15
+          allowed_tools: "mcp__slack__chat_update,mcp__slack__get_channel_info,mcp__slack__get_user_info"
+          max_turns: 5
           claude_env: |
             ANTHROPIC_PROMPT_CACHING=1
             CLAUDE_CODE_AUTORUN_TOOLS=true
+            MCP_VERBOSE=true

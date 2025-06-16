@@ -1,0 +1,68 @@
+name: Claude Code Processor Simple
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Process with Claude and Update Slack
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Get Claude's response
+          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+              "model": "claude-3-7-sonnet-20250219",
+              "max_tokens": 500,
+              "messages": [{
+                "role": "user",
+                "content": "${{ github.event.inputs.question }}"
+              }]
+            }' | jq -r '.content[0].text')
+          
+          # Update Slack message
+          curl -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "channel": "${{ github.event.inputs.slack_channel }}",
+              "ts": "${{ github.event.inputs.slack_ts }}",
+              "text": "'"$RESPONSE"'"
+            }'
+          
+          # If update fails, post as reply
+          if [ $? -ne 0 ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "channel": "${{ github.event.inputs.slack_channel }}",
+                "thread_ts": "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}",
+                "text": "'"$RESPONSE"'"
+              }'
+          fi

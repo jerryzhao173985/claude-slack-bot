@@ -4,13 +4,14 @@ export interface LogContext {
   threadTs?: string;
   error?: Error;
   duration?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class Logger {
   constructor(private serviceName: string) {}
 
   info(message: string, context?: LogContext): void {
+    // eslint-disable-next-line no-console
     console.log(JSON.stringify({
       level: 'info',
       service: this.serviceName,
@@ -46,6 +47,7 @@ export class Logger {
   }
 
   metric(name: string, value: number, tags?: Record<string, string>): void {
+    // eslint-disable-next-line no-console
     console.log(JSON.stringify({
       level: 'metric',
       service: this.serviceName,

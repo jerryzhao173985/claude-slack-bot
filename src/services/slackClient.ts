@@ -22,7 +22,7 @@ export class SlackClient {
     private botToken: string
   ) {}
 
-  async postMessage(channel: string, text: string, threadTs?: string): Promise<{ ts: string }> {
+  async postMessage(channel: string, text: string, threadTs?: string): Promise<{ ts: string; channel: string }> {
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
@@ -33,6 +33,8 @@ export class SlackClient {
         channel,
         text,
         thread_ts: threadTs,
+        unfurl_links: false,
+        unfurl_media: false,
       }),
     });
 
@@ -41,7 +43,7 @@ export class SlackClient {
       throw new Error(`Slack API error: ${data.error}`);
     }
 
-    return { ts: data.ts || '' };
+    return { ts: data.ts || '', channel };
   }
 
   async getThreadContext(

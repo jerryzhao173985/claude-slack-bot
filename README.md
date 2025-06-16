@@ -197,6 +197,15 @@ npm run typecheck
    - Verify Slack app is properly configured
    - Ensure bot is invited to the channel
 
+4. **Claude not updating Slack messages properly**
+   - **Root Cause**: MCP Slack server doesn't have a message update tool
+   - **Solution**: Use the best workflow that handles this properly:
+     ```bash
+     wrangler secret put GITHUB_WORKFLOW_FILE --value "claude-code-processor-best.yml"
+     ```
+   - This workflow asks Claude to save responses to a file, then updates Slack
+   - See `SOLUTION.md` for full details
+
 ### Debug Commands
 
 ```bash

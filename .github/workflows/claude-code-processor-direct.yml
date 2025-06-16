@@ -1,0 +1,72 @@
+name: Claude Code Processor Direct
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      mcp_tools:
+        description: "Comma-separated list of MCP tools to enable"
+        required: false
+        type: string
+        default: ""
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "System prompt with thread context"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    
+    steps:
+      - name: Process and respond
+        run: |
+          # Create the prompt
+          PROMPT="${{ github.event.inputs.system_prompt }}
+
+User question: ${{ github.event.inputs.question }}
+
+Please provide a helpful, concise response to this question."
+
+          # Call Claude API
+          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "{
+              \"model\": \"claude-3-7-sonnet-20250219\",
+              \"max_tokens\": 1000,
+              \"messages\": [{
+                \"role\": \"user\",
+                \"content\": $(echo "$PROMPT" | jq -Rs .)
+              }]
+            }" | jq -r '.content[0].text // "Error processing request"')
+          
+          # Update the Slack message
+          curl -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+              \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+              \"text\": $(echo "$RESPONSE" | jq -Rs .)
+            }"
