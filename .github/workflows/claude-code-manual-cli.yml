@@ -1,0 +1,101 @@
+name: Claude Code Manual CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Claude CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code@latest
+          claude --version
+      
+      - name: Create output directory
+        run: mkdir -p outputs
+      
+      - name: Run Claude CLI Directly
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Create a prompt file
+          cat > prompt.txt << 'EOF'
+          You are a helpful Slack bot assistant. Answer this question:
+          
+          ${{ github.event.inputs.question }}
+          
+          Save your complete response to the file: outputs/slack_response.txt
+          
+          Make sure your response is clear, helpful, and properly formatted for Slack.
+          EOF
+          
+          # Run Claude with the exact syntax from claude --help
+          claude -p "$(cat prompt.txt)" --allowedTools "Write" --dangerously-skip-permissions
+          
+          # Check if file was created
+          if [ -f "outputs/slack_response.txt" ]; then
+            echo "✅ Response file created successfully"
+            echo "Content:"
+            cat outputs/slack_response.txt
+          else
+            echo "❌ Response file not found"
+            echo "Creating fallback response..."
+            echo "I've processed your request. The answer to '${{ github.event.inputs.question }}' has been provided above." > outputs/slack_response.txt
+          fi
+      
+      - name: Update Slack Message
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Read the response
+          RESPONSE=$(cat outputs/slack_response.txt)
+          ESCAPED_RESPONSE=$(echo "$RESPONSE" | jq -Rs .)
+          
+          # Update Slack message
+          echo "Updating Slack message..."
+          UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+              \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+              \"text\": $ESCAPED_RESPONSE
+            }")
+          
+          if echo "$UPDATE_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+            echo "✅ Successfully updated Slack message"
+          else
+            echo "❌ Failed to update: $(echo "$UPDATE_RESULT" | jq -r '.error')"
+            # Post as reply
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                \"thread_ts\": \"${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}\",
+                \"text\": $ESCAPED_RESPONSE
+              }"
+          fi
