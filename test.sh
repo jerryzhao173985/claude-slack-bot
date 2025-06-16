@@ -59,6 +59,15 @@ else
     echo -e "${YELLOW}⚠️  Notion tools not in allowed_tools${NC}"
 fi
 
+# Test 3b: Check thinking mode configuration
+echo ""
+echo "3b. Checking thinking mode configuration..."
+if grep -q "CLAUDE_CODE_THINKING" .github/workflows/claude-code-processor-ultimate.yml; then
+    echo -e "${GREEN}✅ Thinking mode configuration found${NC}"
+else
+    echo -e "${RED}❌ Thinking mode not configured${NC}"
+fi
+
 # Test 4: Check model selection patterns
 echo ""
 echo "4. Model selection test patterns..."

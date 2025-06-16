@@ -39,9 +39,11 @@ wrangler tail
 
 ## Models Available
 
-- **Advanced** (`/model advanced`) → Sonnet 4
+- **Advanced** (`/model advanced`) → Sonnet 4 🧠
 - **Fast** (`/model fast`) → Sonnet 3.5  
-- **Latest** (`/model latest`) → Sonnet 3.7
+- **Latest** (`/model latest`) → Sonnet 3.7 🧠
+
+🧠 = Supports thinking mode for deeper reasoning
 
 ## Troubleshooting
 

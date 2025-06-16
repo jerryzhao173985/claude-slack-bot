@@ -32,7 +32,7 @@ on:
         description: "Claude model to use"
         required: false
         type: string
-        default: "claude-3-5-sonnet-20241022"
+        default: "claude-sonnet-4-20250514"
 
 jobs:
   run-claude:
@@ -45,6 +45,26 @@ jobs:
       
       - name: Create outputs directory
         run: mkdir -p outputs
+      
+      - name: Set Claude Environment Variables
+        id: set-env
+        run: |
+          # Enable thinking for models that support it
+          if [[ "${{ github.event.inputs.model }}" == "claude-3-5-sonnet-20241022" ]]; then
+            echo "Model 3.5 doesn't support thinking, disabling it"
+            echo "claude_env<<EOF" >> $GITHUB_OUTPUT
+            echo "ANTHROPIC_PROMPT_CACHING=1" >> $GITHUB_OUTPUT
+            echo "CLAUDE_CODE_AUTORUN_TOOLS=true" >> $GITHUB_OUTPUT
+            echo "CLAUDE_CODE_THINKING=false" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "Model supports thinking, enabling it"
+            echo "claude_env<<EOF" >> $GITHUB_OUTPUT
+            echo "ANTHROPIC_PROMPT_CACHING=1" >> $GITHUB_OUTPUT
+            echo "CLAUDE_CODE_AUTORUN_TOOLS=true" >> $GITHUB_OUTPUT
+            echo "CLAUDE_CODE_THINKING=true" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
       
       - name: Run Claude Code with Proper Permissions
         uses: anthropics/claude-code-base-action@beta
@@ -112,9 +132,7 @@ jobs:
               }
             }
           max_turns: 15
-          claude_env: |
-            ANTHROPIC_PROMPT_CACHING=1
-            CLAUDE_CODE_AUTORUN_TOOLS=true
+          claude_env: ${{ steps.set-env.outputs.claude_env }}
       
       - name: Update Slack if MCP failed
         if: always()

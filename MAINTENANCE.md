@@ -55,6 +55,16 @@ claude-slack-bot/
   - Presets: `advanced`, `fast`, `latest`
   - Auto-detection of complex requests
   - Fallback to default model
+  - Thinking mode indicator (🧠) for supported models
+
+### 3b. Thinking Mode
+- **Purpose**: Enable deeper reasoning for supported models
+- **Configuration**: Dynamic in workflow based on model
+- **Supported Models**:
+  - ✅ Sonnet 4 (claude-sonnet-4-20250514)
+  - ✅ Sonnet 3.7 (claude-3-7-sonnet-20250219)
+  - ❌ Sonnet 3.5 (claude-3-5-sonnet-20241022)
+- **Implementation**: `CLAUDE_CODE_THINKING` env var
 
 ### 4. Notion Integration
 - **Purpose**: Save all Q&A sessions to Notion

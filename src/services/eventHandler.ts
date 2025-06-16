@@ -34,7 +34,10 @@ export class EventHandler {
     try {
       // Extract model early to include in placeholder
       const model = this.extractModel(text);
-      const modelDisplay = model ? ` (using ${this.getModelDisplayName(model)})` : '';
+      const modelName = this.getModelDisplayName(model || 'claude-sonnet-4-20250514');
+      const supportsThinking = model !== 'claude-3-5-sonnet-20241022';
+      const thinkingIndicator = supportsThinking ? ' 🧠' : '';
+      const modelDisplay = model ? ` (using ${modelName}${thinkingIndicator})` : '';
       
       // Post placeholder message
       const placeholder = await this.slackClient.postMessage(

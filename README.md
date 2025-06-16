@@ -16,6 +16,14 @@ A Slack bot powered by Claude with MCP (Model Context Protocol) integration. Thi
 - **Runner Component**: GitHub Actions workflow executes Claude Code with MCP servers
 - **MCP Servers**: Official integrations for Slack, Notion, and GitHub
 
+## Key Features
+
+- **Model Selection**: Choose between Sonnet 3.5, 3.7, or 4 with natural language or slash commands
+- **Thinking Mode**: Automatic deep reasoning for supported models (3.7 & 4) with visual indicator 🧠
+- **Notion Integration**: Automatically saves all Q&A sessions to your Notion workspace
+- **Thread Context**: Maintains conversation context within Slack threads
+- **Smart Model Detection**: Automatically selects advanced models for complex requests
+
 ## Prerequisites
 
 - Node.js 18+
