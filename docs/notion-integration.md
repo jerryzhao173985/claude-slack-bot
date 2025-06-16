@@ -181,6 +181,20 @@ Claude Code/
 
 If you see permission errors for specific Notion tools, you can limit which ones are available by modifying `allowed_tools` in the workflow.
 
+### Pages Created Without Content?
+
+If Notion pages are being created with only titles but no content, ensure:
+
+1. **Check the workflow uses single API call**: The page content must be included in the `children` array when creating the page
+2. **Verify block structure**: Each block must have the correct type (paragraph, heading_1, etc.) and rich_text format
+3. **Monitor GitHub Actions logs**: Look for any errors when creating the page
+4. **Test manually**: Try creating a simple test page to verify the integration works:
+   ```
+   @claude test notion: save this message
+   ```
+
+The fix implemented includes all content blocks in the initial `API-post-page` call, which is more reliable than separate create/update operations.
+
 ## Benefits
 
 1. **Knowledge Base**: Build a searchable repository of all Q&As

@@ -79,14 +79,27 @@ jobs:
             
             ### 1. Save to Notion (if available)
             - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
-            - If found, create a sub-page with:
-              - **Title:** Clean, descriptive title (max 50 chars, no @ mentions)
-              - **Structure:**
-                - H1: Title
-                - H2: Question → Full user question
-                - H2: Answer → Your response
-                - H2: Metadata → Timestamp, channel, model
-            - Use `mcp__notionApi__API-post-page` and `mcp__notionApi__API-patch-block-children`
+            - If found, create a sub-page using `mcp__notionApi__API-post-page` with ALL content in the `children` array:
+              ```json
+              {
+                "parent": { "page_id": "<CLAUDE_CODE_PAGE_ID>" },
+                "properties": {
+                  "title": { "title": [{ "text": { "content": "<Clean title, max 50 chars>" } }] }
+                },
+                "children": [
+                  { "heading_1": { "rich_text": [{ "text": { "content": "<Title>" } }] } },
+                  { "heading_2": { "rich_text": [{ "text": { "content": "Question" } }] } },
+                  { "paragraph": { "rich_text": [{ "text": { "content": "${{ github.event.inputs.question }}" } }] } },
+                  { "heading_2": { "rich_text": [{ "text": { "content": "Answer" } }] } },
+                  { "paragraph": { "rich_text": [{ "text": { "content": "<Your complete response>" } }] } },
+                  { "heading_2": { "rich_text": [{ "text": { "content": "Metadata" } }] } },
+                  { "bulleted_list_item": { "rich_text": [{ "text": { "content": "Timestamp: $(date -u +\"%Y-%m-%d %H:%M:%S UTC\")" } }] } },
+                  { "bulleted_list_item": { "rich_text": [{ "text": { "content": "Channel: ${{ github.event.inputs.slack_channel }}" } }] } },
+                  { "bulleted_list_item": { "rich_text": [{ "text": { "content": "Model: ${{ github.event.inputs.model }}" } }] } }
+                ]
+              }
+              ```
+            - IMPORTANT: Include ALL content blocks in the `children` array when creating the page
             
             ### 2. Reply to Slack
             - Use `mcp__slack__slack_reply_to_thread`:
@@ -111,7 +124,6 @@ jobs:
             mcp__slack__slack_get_user_profile,
             mcp__notionApi__API-post-search,
             mcp__notionApi__API-post-page,
-            mcp__notionApi__API-patch-block-children,
             Write,Read,Bash,WebSearch
           mcp_config: |
             {

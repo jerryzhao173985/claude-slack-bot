@@ -199,7 +199,32 @@ npm run deploy
 - Cloudflare Workers have a 10ms CPU limit
 - Complex operations should be deferred to GitHub Actions
 
-### 10. Getting Help
+### 10. Notion Pages Created Without Content
+
+**Issue**: Pages appear in Notion with only titles, no question/answer/metadata content.
+
+**Cause**: The workflow was creating pages and attempting to add content separately, but the second operation wasn't executing properly.
+
+**Solution**: 
+1. **Updated workflow** to include all content in the `children` array during page creation
+2. **Single API call** instead of create-then-update approach
+3. **Explicit block structure** with proper `object` and `type` fields
+
+**Test the fix**:
+```bash
+# Run the test workflow
+Actions → Test Notion Content Creation → Run workflow
+
+# Or test in Slack
+@claude test notion integration
+```
+
+**Verify content blocks**:
+- Each block must have `object: "block"` and correct `type`
+- Rich text must be properly formatted
+- All content included in initial `API-post-page` call
+
+### 11. Getting Help
 
 If you're still experiencing issues:
 
