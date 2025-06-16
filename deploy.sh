@@ -6,11 +6,11 @@ echo ""
 
 # Check configuration
 echo "📋 Checking configuration..."
-if grep -q "claude-code-processor-ultimate.yml" wrangler.toml; then
-    echo "✅ Using correct workflow: claude-code-processor-ultimate.yml"
+if grep -q "claude-code-processor.yml" wrangler.toml; then
+    echo "✅ Using correct workflow: claude-code-processor.yml"
 else
     echo "❌ ERROR: Wrong workflow in wrangler.toml!"
-    echo "   Please ensure it uses: claude-code-processor-ultimate.yml"
+    echo "   Please ensure it uses: claude-code-processor.yml"
     exit 1
 fi
 

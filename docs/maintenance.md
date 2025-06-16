@@ -19,8 +19,7 @@ claude-slack-bot/
 │   └── types/             # TypeScript types
 │       └── env.ts         # Environment & interface definitions
 ├── .github/workflows/     # GitHub Actions
-│   ├── claude-code-processor-ultimate.yml  # Main workflow (with MCP)
-│   └── claude-code-direct-api.yml         # Fallback (direct API)
+│   └── claude-code-processor.yml  # Main workflow with MCP servers
 ├── scripts/               # Utility scripts
 │   └── prepare-mcp-config.sh  # Generates MCP configuration
 └── Configuration files
@@ -42,7 +41,7 @@ claude-slack-bot/
 
 ### 2. GitHub Actions (Runner)
 - **Purpose**: Execute Claude with MCP servers
-- **Key File**: `.github/workflows/claude-code-processor-ultimate.yml`
+- **Key File**: `.github/workflows/claude-code-processor.yml`
 - **Responsibilities**:
   - Run Claude Code with proper permissions
   - Connect MCP servers (Slack, Notion, GitHub)

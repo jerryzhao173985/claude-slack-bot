@@ -64,7 +64,7 @@ ESSENTIAL_FILES=(
     "package.json"
     "wrangler.toml"
     "tsconfig.json"
-    ".github/workflows/claude-code-processor-ultimate.yml"
+    ".github/workflows/claude-code-processor.yml"
     "src/index.ts"
     "src/services/eventHandler.ts"
     "src/services/githubDispatcher.ts"
@@ -88,11 +88,11 @@ echo "-------------------------------------"
 
 if [ -f "wrangler.toml" ]; then
     # Check for required configurations
-    if grep -q "GITHUB_WORKFLOW_FILE = \"claude-code-processor-ultimate.yml\"" wrangler.toml; then
+    if grep -q "GITHUB_WORKFLOW_FILE = \"claude-code-processor.yml\"" wrangler.toml; then
         echo -e "${GREEN}✅ Correct workflow file configured${NC}"
     else
         echo -e "${RED}❌ Wrong workflow file in wrangler.toml${NC}"
-        echo -e "${YELLOW}   Update to: claude-code-processor-ultimate.yml${NC}"
+        echo -e "${YELLOW}   Update to: claude-code-processor.yml${NC}"
         ALL_GOOD=false
     fi
     

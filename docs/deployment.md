@@ -73,7 +73,7 @@ compatibility_date = "2024-01-01"
 [vars]
 GITHUB_OWNER = "yourusername"
 GITHUB_REPO = "claude-slack-bot"
-GITHUB_WORKFLOW_FILE = "claude-code-processor-ultimate.yml"
+GITHUB_WORKFLOW_FILE = "claude-code-processor.yml"
 
 [[kv_namespaces]]
 binding = "THREAD_CACHE"
@@ -233,7 +233,7 @@ npm run deploy
 
 ### Workflow Updates
 
-1. Edit `.github/workflows/claude-code-processor-ultimate.yml`
+1. Edit `.github/workflows/claude-code-processor.yml`
 2. Commit and push
 3. Worker will use new workflow automatically
 
