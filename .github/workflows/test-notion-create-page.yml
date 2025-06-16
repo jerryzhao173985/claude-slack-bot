@@ -1,0 +1,52 @@
+name: Test Notion Create Page
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-notion-create:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Create Test Page in Notion
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            Test creating a page in Notion. Follow these steps:
+            
+            1. First, use mcp__notionApi__API-post-search to search for a page titled "Claude Code"
+            2. If found, use that page's ID as the parent
+            3. If not found, create a new top-level page titled "Claude Code" first
+            4. Then create a test page under "Claude Code" with:
+               - Title: "Test Page - $(date +%Y-%m-%d_%H-%M-%S)"
+               - Content: A paragraph block saying "This is a test page created by Claude Code GitHub Action"
+               - Add a heading block "Test Information"
+               - Add a bulleted list with:
+                 - Created at: [current timestamp]
+                 - Test status: Success
+                 - API Key: Working
+            
+            Report the page URL if successful, or the exact error if it fails.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: "claude-3-5-sonnet-20241022"
+          allowed_tools: "mcp__notionApi__API-post-search,mcp__notionApi__API-post-page,mcp__notionApi__API-patch-block-children"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y","@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                }
+              }
+            }
+          max_turns: 10
+          claude_env: |
+            ANTHROPIC_PROMPT_CACHING=1
+            CLAUDE_CODE_AUTORUN_TOOLS=true
+            CLAUDE_CODE_THINKING=false
+            CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true
