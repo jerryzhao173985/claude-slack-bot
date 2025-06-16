@@ -28,6 +28,11 @@ on:
         description: "System prompt with thread context"
         required: false
         type: string
+      model:
+        description: "Claude model to use"
+        required: false
+        type: string
+        default: "claude-3-5-sonnet-20241022"
 
 jobs:
   run-claude:
@@ -44,6 +49,7 @@ jobs:
           echo "Message TS: ${{ github.event.inputs.slack_ts }}"
           echo "Thread TS: ${{ github.event.inputs.slack_thread_ts }}"
           echo "Question: ${{ github.event.inputs.question }}"
+          echo "Model: ${{ github.event.inputs.model || 'claude-3-5-sonnet-20241022' }}"
       
       - name: Run Claude Code
         uses: anthropics/claude-code-base-action@beta
@@ -62,7 +68,7 @@ jobs:
             
             Make sure to call the Slack reply tool as your final action.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          anthropic_model: claude-3-7-sonnet-20250219
+          anthropic_model: ${{ github.event.inputs.model || 'claude-3-5-sonnet-20241022' }}
           mcp_config: |
             {
               "mcpServers": {

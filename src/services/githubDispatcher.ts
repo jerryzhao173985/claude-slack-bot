@@ -24,6 +24,7 @@ export class GitHubDispatcher {
           slack_ts: inputs.slack_ts,
           slack_thread_ts: inputs.slack_thread_ts || '',
           system_prompt: inputs.system_prompt,
+          model: inputs.model || '',
         },
       }),
     });

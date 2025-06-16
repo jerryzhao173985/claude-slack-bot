@@ -32,17 +32,21 @@ export class EventHandler {
     });
 
     try {
+      // Extract model early to include in placeholder
+      const model = this.extractModel(text);
+      const modelDisplay = model ? ` (using ${this.getModelDisplayName(model)})` : '';
+      
       // Post placeholder message
       const placeholder = await this.slackClient.postMessage(
         channel,
-        ':thinking_face: Working on your request...',
+        `:thinking_face: Working on your request${modelDisplay}...`,
         thread_ts || ts
       );
 
       // Get thread context if this is a threaded message
       const context = thread_ts ? await this.slackClient.getThreadContext(channel, thread_ts) : [];
 
-      // Extract tools and question
+      // Extract tools and question (model already extracted above)
       const tools = this.extractMCPTools(text);
       const question = this.extractQuestion(text);
 
@@ -61,6 +65,7 @@ export class EventHandler {
         slack_ts: placeholder.ts,
         slack_thread_ts: thread_ts || ts,
         system_prompt: this.githubDispatcher.buildSystemPrompt(context),
+        model,
       });
 
       const duration = Date.now() - startTime;
@@ -69,7 +74,8 @@ export class EventHandler {
         channel,
         duration,
         tools: tools.length,
-        contextMessages: context.length
+        contextMessages: context.length,
+        model: model || 'default'
       });
       
       this.logger.metric('event_handler.success', 1, { type: 'app_mention' });
@@ -102,6 +108,54 @@ export class EventHandler {
   }
 
   private extractQuestion(text: string): string {
-    return text.replace(/<@[A-Z0-9]+>/g, '').trim();
+    // Remove @mentions and model references
+    return text
+      .replace(/<@[A-Z0-9]+>/g, '')
+      .replace(/\b(model:|using|with)\s+(claude-3-7-sonnet-20250219|claude-3-5-sonnet-20241022|claude-sonnet-4-20250514|sonnet-3\.7|sonnet-3\.5|sonnet-4|opus-4)\b/gi, '')
+      .trim();
+  }
+
+  private extractModel(text: string): string | undefined {
+    const modelAliases: Record<string, string> = {
+      'claude-3-7-sonnet-20250219': 'claude-3-7-sonnet-20250219',
+      'claude-3-5-sonnet-20241022': 'claude-3-5-sonnet-20241022',
+      'claude-sonnet-4-20250514': 'claude-sonnet-4-20250514',
+      'sonnet-3.7': 'claude-3-7-sonnet-20250219',
+      'sonnet-3.5': 'claude-3-5-sonnet-20241022',
+      'sonnet-4': 'claude-sonnet-4-20250514',
+      'opus-4': 'claude-sonnet-4-20250514', // alias for sonnet-4
+    };
+
+    // Look for model specification patterns
+    const patterns = [
+      /\b(?:model:|using|with)\s+([a-z0-9.-]+)/i,
+      /\b(claude-3-7-sonnet-20250219|claude-3-5-sonnet-20241022|claude-sonnet-4-20250514)\b/i,
+      /\b(sonnet-3\.7|sonnet-3\.5|sonnet-4|opus-4)\b/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const modelRef = match[1].toLowerCase();
+        // Check if it's a valid model or alias
+        for (const [alias, model] of Object.entries(modelAliases)) {
+          if (modelRef === alias.toLowerCase()) {
+            this.logger.info('Model extracted from message', { modelRef, model });
+            return model;
+          }
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private getModelDisplayName(model: string): string {
+    const displayNames: Record<string, string> = {
+      'claude-3-7-sonnet-20250219': 'Sonnet 3.7',
+      'claude-3-5-sonnet-20241022': 'Sonnet 3.5',
+      'claude-sonnet-4-20250514': 'Sonnet 4',
+    };
+    return displayNames[model] || model;
   }
 }

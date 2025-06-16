@@ -130,9 +130,25 @@ Mention the bot in any channel:
 @claude check my github pull requests
 ```
 
+### Model Selection
+
+You can specify which Claude model to use by including the model name in your message:
+```
+@claude using sonnet-3.5 analyze this code
+@claude with claude-3-7-sonnet-20250219 write a detailed report
+@claude model: sonnet-4 help me debug this issue
+```
+
+Available models:
+- `claude-3-7-sonnet-20250219` (aliases: `sonnet-3.7`)
+- `claude-3-5-sonnet-20241022` (aliases: `sonnet-3.5`) - default
+- `claude-sonnet-4-20250514` (aliases: `sonnet-4`, `opus-4`)
+
+If no model is specified, the bot will use Claude 3.5 Sonnet by default.
+
 The bot will:
 1. Immediately respond with "🤔 Working on your request..."
-2. Process your request using Claude with MCP tools
+2. Process your request using the specified Claude model with MCP tools
 3. Update the message with the final response
 
 ## Development
