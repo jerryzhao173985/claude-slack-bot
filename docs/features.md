@@ -125,26 +125,113 @@ This ensures compatibility across all models while leveraging advanced features 
 
 ## 🤖 Model Selection
 
-### Automatic Selection
+### Overview
+
+You can specify which Claude model to use in your Slack messages using various natural patterns. The bot recognizes your preference and uses the appropriate model.
+
+### Available Models
+
+| Model ID | Aliases | Description | Thinking Mode |
+|----------|---------|-------------|---------------|
+| `claude-3-7-sonnet-20250219` | `sonnet-3.7`, `3.7`, `smart` | Latest Sonnet 3.7 | ✅ Enabled |
+| `claude-3-5-sonnet-20241022` | `sonnet-3.5`, `3.5`, `fast` | Sonnet 3.5 (default) | ❌ Disabled |
+| `claude-sonnet-4-20250514` | `sonnet-4`, `4`, `advanced`, `opus-4` | Most advanced model | ✅ Enabled |
+
+### Selection Methods
+
+#### 1. Slash Commands
+```
+@claude /model fast what is 2+2?
+@claude /model smart analyze this code
+@claude /model advanced write a detailed report
+```
+
+#### 2. Natural Language Patterns
+The bot recognizes these patterns:
+- `model: <model-name>`
+- `using <model-name>`
+- `with <model-name>`
+- `use <model-name>`
+
+Examples:
+```
+@claude using sonnet-3.7 explain quantum computing
+@claude with claude-3-5-sonnet-20241022 summarize this thread
+@claude model: opus-4 analyze our architecture
+@claude use the smart model to review this PR
+```
+
+#### 3. Automatic Selection
 
 The bot intelligently selects models based on your request:
-- **Complex tasks** → Sonnet 4 with thinking
-- **Simple queries** → Sonnet 3.5 for speed
-- **Default** → Sonnet 3.5 for balance
+- **Complex tasks** → Sonnet 4 with thinking enabled
+- **Simple queries** → Sonnet 3.5 for fast responses
+- **Default** → Sonnet 3.5 for balanced performance
 
-### Manual Selection
+### Model Capabilities
 
-Use slash commands to choose a specific model:
-- `/model fast` or `/model 3.5` → Sonnet 3.5
-- `/model smart` or `/model 3.7` → Sonnet 3.7
-- `/model advanced` or `/model 4` → Sonnet 4
+#### Sonnet 3.5 (Fast Mode)
+- Best for: Quick questions, simple tasks, code snippets
+- Response time: 10-20 seconds
+- No thinking mode (prevents errors)
+- Most cost-effective
 
-### Natural Language Selection
+#### Sonnet 3.7 (Smart Mode)
+- Best for: Complex analysis, detailed explanations
+- Response time: 20-30 seconds
+- Thinking mode enabled for deeper reasoning
+- Good balance of capability and speed
 
-Simply mention the model in your message:
-- "using sonnet 4" → Selects Sonnet 4
-- "with 3.5" → Selects Sonnet 3.5
-- "use the smart model" → Selects Sonnet 3.7
+#### Sonnet 4 / Opus 4 (Advanced Mode)
+- Best for: Complex reasoning, comprehensive analysis
+- Response time: 30-60 seconds
+- Full thinking mode for maximum capability
+- Most powerful option
+
+### Visual Indicators
+
+The bot shows which model is being used:
+- `:thinking_face: Working on your request (using Sonnet 3.5)...`
+- `:thinking_face: Working on your request (using Sonnet 3.7 🧠)...`
+- `:thinking_face: Working on your request (using Sonnet 4 🧠)...`
+
+The 🧠 emoji indicates thinking mode is enabled.
+
+### Usage Examples
+
+```
+# Quick calculation
+@claude what's 15% of 240?
+# Uses default Sonnet 3.5
+
+# Code review with specific model
+@claude using 3.7 review this pull request and suggest improvements
+# Uses Sonnet 3.7 with thinking
+
+# Complex analysis
+@claude /model advanced analyze our system architecture and propose optimizations
+# Uses Sonnet 4 with full thinking mode
+
+# Case-insensitive and partial matching
+@claude with SONNET-4 explain this
+@claude model: 3.5 quick question
+@claude use smart mode for this task
+```
+
+### Best Practices
+
+1. **Use default for most tasks** - Sonnet 3.5 is fast and capable
+2. **Upgrade for complex work** - Use 3.7 or 4 for analysis, planning, or detailed writing
+3. **Be explicit when needed** - Specify model for consistent results
+4. **Consider response time** - Advanced models take longer but provide better results
+
+### Technical Notes
+
+- Model names are case-insensitive
+- Partial matches work (e.g., "3.7" matches "sonnet-3.7")
+- Invalid models fall back to the default (Sonnet 3.5)
+- The GitHub Action log shows which model is being used
+- Model selection is preserved throughout the conversation
 
 ---
 

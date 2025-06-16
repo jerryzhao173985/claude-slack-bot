@@ -250,10 +250,121 @@ wrangler secret put GITHUB_TOKEN
 - [ ] Cloudflare Worker deployed?
 - [ ] Slack app configured properly?
 
+## Test Scripts
+
+### quick-fix.sh
+
+The `quick-fix.sh` script provides an interactive way to configure your bot's workflow:
+
+```bash
+./quick-fix.sh
+```
+
+**Features:**
+- Interactive workflow selection menu
+- Automatically updates Cloudflare configuration
+- Provides clear next steps
+
+**Options:**
+1. **Best Experience** - Full MCP support with message updates (recommended)
+2. **Simple & Fast** - Direct API calls without MCP
+3. **Thread Replies** - Uses available MCP tools but replies in thread
+4. **Direct V2** - Improved simple workflow (most reliable)
+
+**Usage Example:**
+```bash
+$ ./quick-fix.sh
+🔧 Fixing Claude Slack Bot message updates...
+
+Choose your preferred solution:
+
+1) Best Experience (Recommended) - Full MCP support with message updates
+2) Simple & Fast - Direct API calls, no MCP
+3) Thread Replies - Uses available MCP tools
+4) Direct V2 - Improved simple workflow (most reliable)
+
+Enter your choice (1-4): 1
+✅ Selected: Best Experience workflow
+🚀 Updating Cloudflare Worker configuration...
+✅ Configuration updated successfully!
+```
+
+### test-bot.sh
+
+The `test-bot.sh` script helps you verify your bot setup:
+
+```bash
+./test-bot.sh
+```
+
+**Features:**
+- Tests local build
+- Provides test message examples
+- Shows expected behavior
+- Lists monitoring commands
+
+**Test Messages Provided:**
+1. **Simple test**: `@claude what is 2+2?`
+2. **With context**: `@claude can you help me understand this error message?`
+3. **With MCP tools**: `@claude check my recent github commits`
+
+**Expected Behavior:**
+1. Bot responds immediately with "🤔 Working on your request..."
+2. Within 30-60 seconds, message updates with Claude's response
+3. No extra messages or thread replies (with recommended workflow)
+
+### verify-deployment.sh
+
+Comprehensive pre-deployment verification:
+
+```bash
+./verify-deployment.sh
+```
+
+**Checks:**
+- Prerequisites (Node.js, npm, wrangler)
+- Project structure integrity
+- Configuration file validity
+- Build process success
+- TypeScript compliance
+- Secret configuration
+
+### Manual Testing Commands
+
+**Test Slack API:**
+```bash
+# Verify bot authentication
+curl -X POST https://slack.com/api/auth.test \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN"
+
+# Test posting a message
+curl -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "C1234567890",
+    "text": "Test message from bot"
+  }'
+```
+
+**Test Claude API:**
+```bash
+curl https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-3-5-sonnet-20241022",
+    "max_tokens": 100,
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
 ## Support
 
 For issues:
 1. Check logs (Cloudflare & GitHub)
 2. Review this maintenance guide
-3. Check README troubleshooting section
-4. Create GitHub issue with details
+3. See [Troubleshooting Guide](troubleshooting.md)
+4. Use test scripts for diagnosis
+5. Create GitHub issue with details

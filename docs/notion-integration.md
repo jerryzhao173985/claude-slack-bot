@@ -111,12 +111,57 @@ Title: [User's Question]
 - Parent page must be shared with integration
 - Check workspace restrictions
 
+### Internal Integration Limitations
+
+**Important:** Internal integrations have specific limitations you should be aware of:
+
+1. **Cannot create top-level pages** - Must have a parent page
+2. **Workspace-specific** - Only works in the workspace where it was created
+3. **No public sharing** - Cannot be distributed to other Notion users
+4. **Limited API access** - Some advanced features may be restricted
+
+**Why Internal Integration?**
+- Simpler setup (no OAuth flow)
+- Better for single-workspace use
+- More secure for private data
+- Sufficient for bot's Q&A logging needs
+
+**Workaround for Page Creation:**
+The bot automatically searches for a page named "Claude Code" in your workspace. If not found, it will:
+1. Find any accessible page in your workspace
+2. Create "Claude Code" as a child of that page
+3. Use it for all future Q&A sessions
+
+This ensures the bot works even if you forget to create the parent page manually.
+
 ### API Key Status Check
 
 If you're having issues, verify your integration:
 - **Bot Name**: Should match your integration name
 - **Type**: Internal Integration Bot
 - **Workspace**: Should be your Notion workspace
+
+## Title Generation
+
+The bot automatically generates clean, descriptive titles for each Q&A session:
+
+### Title Rules
+1. **Keep it under 50 characters**
+2. **Remove @ mentions and special characters**
+3. **Make it descriptive and searchable**
+4. **Use title case**
+5. **For greetings/small talk, use date-based titles**
+
+### Examples
+
+| User Question | Generated Title |
+|--------------|-----------------|
+| "@claude how do I use python decorators?" | "How to Use Python Decorators" |
+| "@claude explain git merge vs rebase" | "Git Merge vs Rebase Explained" |
+| "@claude debug this TypeError" | "Debug React TypeError" |
+| "@claude what is machine learning?" | "What Is Machine Learning" |
+| "@claude hello" | "Chat Session - 2024-01-16" |
+| "@claude write email validation function" | "Email Validation Function" |
 
 ## Advanced Usage
 

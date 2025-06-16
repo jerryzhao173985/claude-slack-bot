@@ -32,7 +32,10 @@ A powerful Slack bot powered by Claude with MCP (Model Context Protocol) integra
 - [Deployment Guide](docs/deployment.md) - Complete deployment walkthrough
 - [Features Guide](docs/features.md) - All features explained
 - [Notion Integration](docs/notion-integration.md) - Set up Q&A archiving
+- [Architecture Guide](docs/architecture.md) - Technical deep dive
+- [Troubleshooting Guide](docs/troubleshooting.md) - Common issues & solutions
 - [Maintenance Guide](docs/maintenance.md) - Keep your bot healthy
+- [Fallback Options](docs/fallback-options.md) - Simpler alternatives if MCP fails
 
 ## 🏗️ Architecture
 
@@ -269,30 +272,27 @@ Every question and response is automatically saved to your Notion workspace:
 
 ## Troubleshooting
 
-### Common Issues
+For comprehensive troubleshooting, see our [Troubleshooting Guide](docs/troubleshooting.md).
 
-1. **Slack signature verification fails**
-   - Ensure `SLACK_SIGNING_SECRET` is correctly set
-   - Check request timestamps aren't stale
+### Quick Fixes
 
-2. **GitHub workflow not triggering**
-   - Verify `GITHUB_TOKEN` has correct permissions
-   - Check workflow file path matches configuration
+1. **Bot not responding**: Check if bot is invited to channel with `/invite @claude`
+2. **"Working..." never updates**: Verify GitHub Actions are running
+3. **Permission errors**: Ensure bot has `chat:write` scope in Slack app settings
+4. **Notion not saving**: Create and share "Claude Code" page with integration
 
-3. **Bot not responding**
-   - Check Cloudflare Worker logs: `wrangler tail`
-   - Verify Slack app is properly configured
-   - Ensure bot is invited to the channel
+### Test Scripts
 
-4. **Model selection not working**
-   - Ensure you've deployed the latest Worker: `wrangler deploy`
-   - Check that `wrangler.toml` uses `claude-code-processor.yml`
-   - Verify the model name in your Slack message is valid
+```bash
+# Quick configuration fix
+./quick-fix.sh
 
-5. **Notion integration issues**
-   - Ensure "Claude Code" page exists and is shared with integration
-   - Check `NOTION_KEY` starts with `secret_`
-   - Verify integration has proper permissions
+# Test bot setup
+./test-bot.sh
+
+# Verify deployment
+./verify-deployment.sh
+```
 
 ### Debug Commands
 
