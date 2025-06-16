@@ -9,9 +9,11 @@ export class GitHubDispatcher {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Accept: 'application/vnd.github.v3+json',
-        Authorization: `token ${this.env.GITHUB_TOKEN}`,
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${this.env.GITHUB_TOKEN}`,
         'Content-Type': 'application/json',
+        'User-Agent': 'claude-slack-bot/1.0',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
       body: JSON.stringify({
         ref: 'main',
