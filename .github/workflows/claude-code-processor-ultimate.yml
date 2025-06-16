@@ -92,14 +92,27 @@ jobs:
             
             1. First, save this Q&A session to Notion:
                a) Search for a page titled "Claude Code" using mcp__notionApi__API-post-search
-               b) If not found, create a new page titled "Claude Code" as the parent folder
-               c) Create a new page under "Claude Code" with:
-                  - Title: The user's question (truncated to 100 chars if needed)
-                  - Content should include:
-                    - Question section with the full question
-                    - Answer section with your complete response
-                    - Metadata section with timestamp, channel ID, and model used
-               d) Use mcp__notionApi__API-post-page and mcp__notionApi__API-post-blocks as needed
+               b) If "Claude Code" page is not found, skip Notion saving and just reply to Slack
+               c) If found, create a new page under "Claude Code" with:
+                  - Title: Create a simple, clear title from the user's question:
+                    * Remove @ mentions and special characters
+                    * Keep it under 50 characters
+                    * Make it descriptive (e.g., "How to use Python decorators" not just "decorators")
+                    * If it's a greeting, use "Chat Session - [date]"
+                  - Content structure:
+                    * Heading 1: The clean title
+                    * Heading 2: "Question"
+                    * Paragraph: The full user question
+                    * Heading 2: "Answer"
+                    * Paragraph(s): Your complete response
+                    * Heading 2: "Metadata"
+                    * Bulleted list:
+                      - Timestamp: [current time]
+                      - Slack Channel: [channel ID]
+                      - Model: [model used]
+                      - User: [username if available]
+               d) Use mcp__notionApi__API-post-page to create the page
+               e) Use mcp__notionApi__API-patch-block-children to add the content blocks
             
             2. Then, send your response to Slack:
                - Use mcp__slack__slack_reply_to_thread tool:
