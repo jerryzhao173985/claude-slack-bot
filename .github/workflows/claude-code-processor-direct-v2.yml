@@ -1,0 +1,119 @@
+name: Claude Code Processor Direct V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "System prompt with thread context"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Process with Claude and Update Slack
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          QUESTION: ${{ github.event.inputs.question }}
+          SYSTEM_PROMPT: ${{ github.event.inputs.system_prompt }}
+          CHANNEL: ${{ github.event.inputs.slack_channel }}
+          MESSAGE_TS: ${{ github.event.inputs.slack_ts }}
+          THREAD_TS: ${{ github.event.inputs.slack_thread_ts }}
+        run: |
+          # Prepare the prompt
+          if [ -n "$SYSTEM_PROMPT" ]; then
+            PROMPT="$SYSTEM_PROMPT
+          
+          User question: $QUESTION
+          
+          Please provide a helpful, concise response."
+          else  
+            PROMPT="User question: $QUESTION
+          
+          Please provide a helpful, concise response."
+          fi
+          
+          # Create request payload
+          cat > request.json <<EOFPAYLOAD
+          {
+            "model": "claude-3-7-sonnet-20250219",
+            "max_tokens": 1000,
+            "messages": [{
+              "role": "user",
+              "content": "$PROMPT"
+            }]
+          }
+          EOFPAYLOAD
+          
+          # Call Claude API
+          echo "Calling Claude API..."
+          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @request.json)
+          
+          # Extract text from response
+          TEXT=$(echo "$RESPONSE" | jq -r '.content[0].text // empty')
+          
+          if [ -z "$TEXT" ]; then
+            TEXT="I encountered an error processing your request. Please try again."
+            echo "Error: No text in response"
+            echo "$RESPONSE"
+          fi
+          
+          # Save response for Slack
+          echo "$TEXT" > response.txt
+          
+          # Update Slack message
+          echo "Updating Slack message..."
+          jq -n \
+            --arg channel "$CHANNEL" \
+            --arg ts "$MESSAGE_TS" \
+            --arg text "$TEXT" \
+            '{channel: $channel, ts: $ts, text: $text}' > update.json
+          
+          UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @update.json)
+          
+          # Check result
+          if echo "$UPDATE_RESULT" | jq -e '.ok' > /dev/null 2>&1; then
+            echo "✅ Successfully updated Slack message"
+          else
+            echo "❌ Failed to update message, posting as reply"
+            echo "Error: $(echo "$UPDATE_RESULT" | jq -r '.error // "unknown"')"
+            
+            # Post as reply
+            jq -n \
+              --arg channel "$CHANNEL" \
+              --arg thread_ts "${THREAD_TS:-$MESSAGE_TS}" \
+              --arg text "$TEXT" \
+              '{channel: $channel, thread_ts: $thread_ts, text: $text}' > reply.json
+            
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @reply.json
+          fi

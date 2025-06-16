@@ -17,10 +17,11 @@ fi
 echo "Choose your preferred solution:"
 echo ""
 echo "1) Best Experience (Recommended) - Full MCP support with message updates"
-echo "2) Simple & Fast - Direct API calls, no MCP"
+echo "2) Simple & Fast - Direct API calls, no MCP" 
 echo "3) Thread Replies - Uses available MCP tools"
+echo "4) Direct V2 - Improved simple workflow (most reliable)"
 echo ""
-read -p "Enter your choice (1-3): " choice
+read -p "Enter your choice (1-4): " choice
 
 case $choice in
     1)
@@ -28,16 +29,20 @@ case $choice in
         echo "✅ Selected: Best Experience workflow"
         ;;
     2)
-        WORKFLOW="claude-code-processor-direct.yml"
-        echo "✅ Selected: Simple & Fast workflow"
+        WORKFLOW="claude-code-processor-direct-v2.yml"
+        echo "✅ Selected: Simple & Fast workflow (V2)"
         ;;
     3)
         WORKFLOW="claude-code-processor-fixed.yml"
         echo "✅ Selected: Thread Replies workflow"
         ;;
+    4)
+        WORKFLOW="claude-code-processor-direct-v2.yml"
+        echo "✅ Selected: Direct V2 workflow (most reliable)"
+        ;;
     *)
-        echo "❌ Invalid choice. Using recommended workflow."
-        WORKFLOW="claude-code-processor-best.yml"
+        echo "❌ Invalid choice. Using most reliable workflow."
+        WORKFLOW="claude-code-processor-direct-v2.yml"
         ;;
 esac
 

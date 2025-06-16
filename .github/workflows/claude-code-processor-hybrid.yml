@@ -46,7 +46,7 @@ jobs:
       
       - name: Create response script
         run: |
-          cat > update_slack.sh << 'EOF'
+          cat > update_slack.sh << 'EOFSCRIPT'
           #!/bin/bash
           CHANNEL="${1}"
           TS="${2}"
@@ -76,7 +76,7 @@ jobs:
                 \"text\": \"${TEXT}\"
               }"
           fi
-          EOF
+          EOFSCRIPT
           chmod +x update_slack.sh
       
       - name: Run Claude Code

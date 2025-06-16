@@ -41,10 +41,10 @@ jobs:
       - name: Prepare MCP config
         run: |
           # Start with base MCP servers
-          cat > mcp-config.json << 'EOF'
+          cat > mcp-config.json << 'EOFCONFIG'
           {
             "mcpServers": {
-          EOF
+          EOFCONFIG
           
           # Add requested MCP servers
           FIRST=true
@@ -60,7 +60,7 @@ jobs:
               
               case "$tool" in
                 "slack")
-                  cat >> mcp-config.json << 'EOF'
+                  cat >> mcp-config.json << 'EOFSLACK'
               "slack": {
                 "command": "npx",
                 "args": ["-y", "@modelcontextprotocol/server-slack"],
@@ -69,10 +69,10 @@ jobs:
                   "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}"
                 }
               }
-          EOF
+          EOFSLACK
                   ;;
                 "notion"|"notionApi")
-                  cat >> mcp-config.json << 'EOF'
+                  cat >> mcp-config.json << 'EOFNOTION'
               "notionApi": {
                 "command": "npx",
                 "args": ["-y", "@notionhq/notion-mcp-server"],
@@ -80,10 +80,10 @@ jobs:
                   "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
                 }
               }
-          EOF
+          EOFNOTION
                   ;;
                 "github")
-                  cat >> mcp-config.json << 'EOF'
+                  cat >> mcp-config.json << 'EOFGITHUB'
               "github": {
                 "command": "npx",
                 "args": ["-y", "@modelcontextprotocol/server-github"],
@@ -91,16 +91,16 @@ jobs:
                   "GITHUB_TOKEN": "${{ secrets.GH_TOKEN }}"
                 }
               }
-          EOF
+          EOFGITHUB
                   ;;
               esac
             fi
           done
           
-          cat >> mcp-config.json << 'EOF'
+          cat >> mcp-config.json << 'EOFEND'
             }
           }
-          EOF
+          EOFEND
       
       - name: Run Claude Code
         id: claude

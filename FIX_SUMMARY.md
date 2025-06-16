@@ -11,10 +11,10 @@ I've created several workflows that work around this limitation:
 - **User experience**: "Working..." message transforms into Claude's response
 - **Best for**: Full functionality with clean UX
 
-### ⚡ Fast & Simple: `claude-code-processor-direct.yml`  
+### ⚡ Fast & Simple: `claude-code-processor-direct-v2.yml`  
 - **What it does**: Direct API calls to Claude and Slack, no MCP
 - **User experience**: Quick responses, message updates properly
-- **Best for**: Simple questions, fast responses
+- **Best for**: Simple questions, fast responses, most reliable
 
 ### 💬 Thread Reply: `claude-code-processor-fixed.yml`
 - **What it does**: Uses MCP's `slack_reply_to_thread` tool
