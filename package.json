@@ -16,9 +16,9 @@
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
-    "hono": "^4.6.15",
-    "@hono/zod-openapi": "^0.19.4",
     "@hono/swagger-ui": "^0.4.1",
+    "@hono/zod-openapi": "^0.19.4",
+    "hono": "^4.6.15",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -32,7 +32,7 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
     "vitest": "^2.1.8",
-    "wrangler": "^3.103.3"
+    "wrangler": "^4.20.0"
   },
   "engines": {
     "node": ">=18.0.0"
