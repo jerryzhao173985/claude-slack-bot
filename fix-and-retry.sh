@@ -1,0 +1,40 @@
+#!/bin/bash
+
+echo "🔧 Claude Slack Bot - API Error Fix"
+echo "===================================="
+echo ""
+echo "Issues detected from your logs:"
+echo "1. ❌ API returned 529 Overloaded error"
+echo "2. ❌ Wrong model name in workflows (now fixed)"
+echo "3. ⚠️  Using allowed_tools: ALL instead of specific format"
+echo ""
+
+# Fix the workflow configuration
+echo "📝 Updating to use the Ultimate workflow with correct settings..."
+wrangler secret delete GITHUB_WORKFLOW_FILE 2>/dev/null || true
+echo "claude-code-processor-ultimate.yml" | wrangler secret put GITHUB_WORKFLOW_FILE
+
+echo ""
+echo "✅ Configuration updated!"
+echo ""
+echo "🔄 The API overload error (529) is temporary. Here's what to do:"
+echo ""
+echo "1. Wait 2-5 minutes for the API to recover"
+echo "2. Test again in Slack: @claude what is 2+2?"
+echo ""
+echo "If it still fails, try these alternatives:"
+echo ""
+echo "Option A: Use Direct API workflow (most reliable)"
+echo "  wrangler secret put GITHUB_WORKFLOW_FILE"
+echo "  Enter: claude-code-direct-api.yml"
+echo ""
+echo "Option B: Try a different model"
+echo "  Edit the workflow to use: claude-3-opus-20240229"
+echo "  (More expensive but less likely to be overloaded)"
+echo ""
+echo "📊 Monitor the retry:"
+echo "- GitHub Actions: Check the Actions tab"
+echo "- Cloudflare logs: wrangler tail"
+echo ""
+echo "💡 Pro tip: The 529 error usually clears up quickly."
+echo "   Most users report success after waiting a few minutes."

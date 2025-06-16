@@ -111,40 +111,82 @@ export class EventHandler {
     // Remove @mentions and model references
     return text
       .replace(/<@[A-Z0-9]+>/g, '')
-      .replace(/\b(model:|using|with)\s+(claude-3-7-sonnet-20250219|claude-3-5-sonnet-20241022|claude-sonnet-4-20250514|sonnet-3\.7|sonnet-3\.5|sonnet-4|opus-4)\b/gi, '')
+      // Remove model specifications with various patterns
+      .replace(/\/model\s+[a-z0-9.-]+/gi, '')
+      .replace(/\b(model:|using|with)\s+[a-z0-9.-]+/gi, '')
+      // Remove model presets
+      .replace(/\b(advanced|fast|balanced|smart|quick|deep)\s+mode\b/gi, '')
+      .replace(/\/mode\s+[a-z]+/gi, '')
       .trim();
   }
 
   private extractModel(text: string): string | undefined {
     const modelAliases: Record<string, string> = {
+      // Full model IDs
       'claude-3-7-sonnet-20250219': 'claude-3-7-sonnet-20250219',
       'claude-3-5-sonnet-20241022': 'claude-3-5-sonnet-20241022',
       'claude-sonnet-4-20250514': 'claude-sonnet-4-20250514',
+      
+      // Version aliases
       'sonnet-3.7': 'claude-3-7-sonnet-20250219',
       'sonnet-3.5': 'claude-3-5-sonnet-20241022',
       'sonnet-4': 'claude-sonnet-4-20250514',
-      'opus-4': 'claude-sonnet-4-20250514', // alias for sonnet-4
+      'opus-4': 'claude-sonnet-4-20250514',
+      
+      // Short aliases
+      '3.7': 'claude-3-7-sonnet-20250219',
+      '3.5': 'claude-3-5-sonnet-20241022',
+      '4': 'claude-sonnet-4-20250514',
+      
+      // Named presets
+      'advanced': 'claude-sonnet-4-20250514',      // Most capable
+      'smart': 'claude-sonnet-4-20250514',         // Alias for advanced
+      'deep': 'claude-sonnet-4-20250514',          // Alias for advanced
+      'fast': 'claude-3-5-sonnet-20241022',        // Good balance
+      'balanced': 'claude-3-5-sonnet-20241022',    // Default
+      'quick': 'claude-3-5-sonnet-20241022',       // Alias for fast
+      'latest': 'claude-3-7-sonnet-20250219',      // Latest release
+      'newest': 'claude-3-7-sonnet-20250219',      // Alias for latest
     };
 
     // Look for model specification patterns
     const patterns = [
+      // Slash command style
+      /\/model\s+([a-z0-9.-]+)/i,
+      /\/mode\s+([a-z]+)/i,
+      
+      // Natural language style
       /\b(?:model:|using|with)\s+([a-z0-9.-]+)/i,
+      
+      // Mode patterns
+      /\b(advanced|fast|balanced|smart|quick|deep|latest|newest)\s+mode\b/i,
+      
+      // Direct model references
       /\b(claude-3-7-sonnet-20250219|claude-3-5-sonnet-20241022|claude-sonnet-4-20250514)\b/i,
-      /\b(sonnet-3\.7|sonnet-3\.5|sonnet-4|opus-4)\b/i,
+      /\b(sonnet-3\.7|sonnet-3\.5|sonnet-4|opus-4|3\.7|3\.5|4)\b/i,
     ];
 
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match) {
-        const modelRef = match[1].toLowerCase();
+        const modelRef = match[1].toLowerCase().replace(/\s+mode$/, '');
+        
         // Check if it's a valid model or alias
-        for (const [alias, model] of Object.entries(modelAliases)) {
-          if (modelRef === alias.toLowerCase()) {
-            this.logger.info('Model extracted from message', { modelRef, model });
-            return model;
-          }
+        if (modelAliases[modelRef]) {
+          this.logger.info('Model extracted from message', { 
+            modelRef, 
+            model: modelAliases[modelRef],
+            pattern: pattern.source
+          });
+          return modelAliases[modelRef];
         }
       }
+    }
+
+    // Check for contextual hints that suggest advanced model
+    if (text.match(/\b(complex|detailed|comprehensive|thorough|advanced)\b/i)) {
+      this.logger.info('Detected advanced request, using Sonnet 4');
+      return 'claude-sonnet-4-20250514';
     }
 
     return undefined;

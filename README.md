@@ -132,17 +132,38 @@ Mention the bot in any channel:
 
 ### Model Selection
 
-You can specify which Claude model to use by including the model name in your message:
+You can specify which Claude model to use with multiple patterns:
+
+#### Slash Commands (NEW!)
 ```
-@claude using sonnet-3.5 analyze this code
-@claude with claude-3-7-sonnet-20250219 write a detailed report
-@claude model: sonnet-4 help me debug this issue
+@claude /model advanced analyze this complex dataset
+@claude /model fast what's the weather?
+@claude /mode smart write a comprehensive report
 ```
 
-Available models:
-- `claude-3-7-sonnet-20250219` (aliases: `sonnet-3.7`)
-- `claude-3-5-sonnet-20241022` (aliases: `sonnet-3.5`) - default
-- `claude-sonnet-4-20250514` (aliases: `sonnet-4`, `opus-4`)
+#### Named Presets (NEW!)
+- `advanced` / `smart` / `deep` → Claude Sonnet 4 (Most capable)
+- `fast` / `balanced` / `quick` → Claude 3.5 Sonnet (Default)
+- `latest` / `newest` → Claude 3.7 Sonnet (Latest release)
+
+#### Natural Language
+```
+@claude using sonnet-3.5 analyze this code
+@claude with advanced model create a business plan
+@claude model: 4 help me debug this issue
+```
+
+#### Available Models
+- `claude-3-7-sonnet-20250219` (aliases: `sonnet-3.7`, `3.7`, `latest`)
+- `claude-3-5-sonnet-20241022` (aliases: `sonnet-3.5`, `3.5`, `fast`) - default
+- `claude-sonnet-4-20250514` (aliases: `sonnet-4`, `opus-4`, `4`, `advanced`)
+
+#### Auto-Selection
+The bot automatically uses the advanced model when detecting complex requests:
+```
+@claude write a comprehensive analysis of our data
+@claude create a detailed technical specification
+```
 
 If no model is specified, the bot will use Claude 3.5 Sonnet by default.
 
