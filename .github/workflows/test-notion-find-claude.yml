@@ -1,0 +1,140 @@
+name: Test Notion - Find Claude Page
+
+on:
+  workflow_dispatch:
+
+jobs:
+  find-claude-page:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Search for Claude Page
+        env:
+          NOTION_KEY: ${{ secrets.NOTION_KEY }}
+        run: |
+          echo "Searching for 'Claude' page in Notion..."
+          
+          # Search for pages with "Claude" in the title
+          SEARCH_RESPONSE=$(curl -s -X POST 'https://api.notion.com/v1/search' \
+            -H "Authorization: Bearer $NOTION_KEY" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "Claude",
+              "filter": {
+                "value": "page",
+                "property": "object"
+              },
+              "page_size": 10
+            }')
+          
+          echo "Search response:"
+          echo "$SEARCH_RESPONSE" | jq '.'
+          
+          # Extract page information
+          PAGES_COUNT=$(echo "$SEARCH_RESPONSE" | jq -r '.results | length')
+          echo -e "\nFound $PAGES_COUNT pages containing 'Claude'"
+          
+          if [ "$PAGES_COUNT" -gt 0 ]; then
+            echo -e "\nPages found:"
+            echo "$SEARCH_RESPONSE" | jq -r '.results[] | "- Title: \(.properties.title.title[0].text.content // "No title") | ID: \(.id) | URL: \(.url)"'
+            
+            # Get the first Claude page
+            CLAUDE_PAGE_ID=$(echo "$SEARCH_RESPONSE" | jq -r '.results[0].id')
+            CLAUDE_PAGE_TITLE=$(echo "$SEARCH_RESPONSE" | jq -r '.results[0].properties.title.title[0].text.content // "No title"')
+            CLAUDE_PAGE_URL=$(echo "$SEARCH_RESPONSE" | jq -r '.results[0].url')
+            
+            echo -e "\n✅ Using page: $CLAUDE_PAGE_TITLE"
+            echo "Page ID: $CLAUDE_PAGE_ID"
+            echo "Page URL: $CLAUDE_PAGE_URL"
+            
+            # Try to create a test page under Claude
+            echo -e "\nCreating test page under '$CLAUDE_PAGE_TITLE'..."
+            TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            
+            CREATE_RESPONSE=$(curl -s -X POST 'https://api.notion.com/v1/pages' \
+              -H "Authorization: Bearer $NOTION_KEY" \
+              -H "Notion-Version: 2022-06-28" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"parent\": {
+                  \"page_id\": \"$CLAUDE_PAGE_ID\"
+                },
+                \"properties\": {
+                  \"title\": {
+                    \"title\": [
+                      {
+                        \"text\": {
+                          \"content\": \"Test Page - $TIMESTAMP\"
+                        }
+                      }
+                    ]
+                  }
+                },
+                \"children\": [
+                  {
+                    \"object\": \"block\",
+                    \"type\": \"paragraph\",
+                    \"paragraph\": {
+                      \"rich_text\": [
+                        {
+                          \"type\": \"text\",
+                          \"text\": {
+                            \"content\": \"✅ Successfully created under Claude page!\"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }")
+            
+            if echo "$CREATE_RESPONSE" | jq -e '.object == "page"' > /dev/null 2>&1; then
+              echo "✅ Test page created successfully!"
+              TEST_PAGE_URL=$(echo "$CREATE_RESPONSE" | jq -r '.url')
+              echo "Test page URL: $TEST_PAGE_URL"
+              echo -e "\n🎉 Your Notion integration is working! The bot can now save Q&A sessions under the Claude page."
+            else
+              echo "❌ Failed to create test page"
+              echo "Error response:"
+              echo "$CREATE_RESPONSE" | jq '.'
+              echo -e "\n⚠️  Make sure the 'Claude Code' integration has access to the '$CLAUDE_PAGE_TITLE' page"
+              echo "To fix: Open the page in Notion → '...' menu → 'Add connections' → Select 'Claude Code'"
+            fi
+          else
+            echo "❌ No pages found containing 'Claude'"
+            echo "Please create a page called 'Claude' in your Notion workspace"
+          fi
+      
+      - name: Find Claude Page with MCP
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            Search for pages containing "Claude" in Notion and report:
+            1. How many pages found
+            2. Their titles and IDs
+            3. Try to create a test page under the first "Claude" page found
+            4. If it fails, explain why (probably permissions)
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: "claude-3-5-sonnet-20241022"
+          allowed_tools: "mcp__notionApi__API-post-search,mcp__notionApi__API-post-page,mcp__notionApi__API-retrieve-a-page,Write"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y","@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                }
+              }
+            }
+          max_turns: 10
+          claude_env: |
+            ANTHROPIC_PROMPT_CACHING=1
+            CLAUDE_CODE_AUTORUN_TOOLS=true
+            CLAUDE_CODE_THINKING=false
+            CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true
