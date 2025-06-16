@@ -46,6 +46,15 @@ jobs:
       - name: Create outputs directory
         run: mkdir -p outputs
       
+      - name: Prepare MCP Configuration
+        run: |
+          bash scripts/prepare-mcp-config.sh
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_TEAM_ID: ${{ secrets.SLACK_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      
       - name: Run Claude Code with Proper Permissions
         uses: anthropics/claude-code-base-action@beta
         with:
@@ -53,35 +62,38 @@ jobs:
             You are a helpful Slack bot assistant. A user has asked you a question in Slack.
             
             User question: ${{ github.event.inputs.question }}
+            Slack channel: ${{ github.event.inputs.slack_channel }}
+            Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
             
             Please provide a helpful and concise response to the user's question.
             
-            IMPORTANT: 
-            1. First, use the mcp__slack__slack_reply_to_thread tool to send your response:
-               - channel_id: "${{ github.event.inputs.slack_channel }}"
-               - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
-               - text: Your complete response
+            IMPORTANT STEPS TO FOLLOW IN ORDER:
             
-            2. If that fails, save your response to: outputs/slack_response.txt
+            1. First, save this Q&A session to Notion:
+               a) Search for a page titled "Claude Code" using mcp__notionApi__search
+               b) If not found, create a new page titled "Claude Code" as the parent folder
+               c) Create a new page under "Claude Code" with:
+                  - Title: The user's question (truncated to 100 chars if needed)
+                  - Content should include:
+                    - Question section with the full question
+                    - Answer section with your complete response
+                    - Metadata section with timestamp, channel ID, and model used
+               d) Use mcp__notionApi__create_page and mcp__notionApi__append_block_children as needed
             
-            Make sure to provide a complete, helpful answer to the user's question.
+            2. Then, send your response to Slack:
+               - Use mcp__slack__slack_reply_to_thread tool:
+                 - channel_id: "${{ github.event.inputs.slack_channel }}"
+                 - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
+                 - text: Your complete response
+            
+            3. If Slack reply fails, save your response to: outputs/slack_response.txt
+            
+            Make sure to complete BOTH the Notion save AND the Slack reply.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: ${{ github.event.inputs.model }}
-          # Correct comma-separated format with all necessary tools
-          allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
-          mcp_config: |
-            {
-              "mcpServers": {
-                "slack": {
-                  "command": "npx",
-                  "args": ["-y", "@modelcontextprotocol/server-slack"],
-                  "env": {
-                    "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
-                    "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}"
-                  }
-                }
-              }
-            }
+          # Correct comma-separated format with all necessary tools including Notion
+          allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,mcp__notionApi__create_page,mcp__notionApi__retrieve_page,mcp__notionApi__search,mcp__notionApi__append_block_children,mcp__notionApi__retrieve_block_children,mcp__notionApi__query_database,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
+          mcp_config_path: "./mcp-config.json"
           max_turns: 15
           claude_env: |
             ANTHROPIC_PROMPT_CACHING=1

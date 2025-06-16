@@ -1,5 +1,12 @@
 # 🚀 Quick Start Guide
 
+## Before You Deploy
+
+Make sure you have:
+- ✅ Set `NOTION_KEY` in GitHub Secrets
+- ✅ Created Notion integration
+- ✅ Other required secrets configured
+
 ## Deploy Your Bot
 
 ```bash

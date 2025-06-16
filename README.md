@@ -41,7 +41,7 @@ Add these secrets to your GitHub repository (Settings > Secrets > Actions):
 - `ANTHROPIC_API_KEY`: Your Claude API key from Anthropic Console
 - `SLACK_BOT_TOKEN`: Slack bot token (starts with `xoxb-`)
 - `SLACK_TEAM_ID`: Your Slack team/workspace ID (e.g., T1234567890)
-- `NOTION_KEY`: Notion integration key (optional, for Notion MCP)
+- `NOTION_KEY`: Notion integration key (required for Q&A history)
 - `GH_TOKEN`: GitHub personal access token with `repo` scope
 
 #### Cloudflare Worker Secrets
@@ -198,9 +198,17 @@ npm run typecheck
 ## MCP Tools Available
 
 - **Slack**: Read/write messages, manage channels
-- **Notion**: Access and modify Notion pages
+- **Notion**: Access and modify Notion pages (Q&A automatically saved)
 - **GitHub**: Interact with repositories, issues, PRs
 - **Claude Code Tools**: File operations, web search, and more
+
+### Notion Integration
+
+Every question and response is automatically saved to your Notion workspace:
+- Creates pages under a "Claude Code" folder
+- Each Q&A session becomes a separate page
+- Includes metadata: timestamp, channel, model used
+- Fully searchable history of all interactions
 
 ## Extending the Bot
 

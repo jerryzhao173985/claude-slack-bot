@@ -56,6 +56,15 @@ claude-slack-bot/
   - Auto-detection of complex requests
   - Fallback to default model
 
+### 4. Notion Integration
+- **Purpose**: Save all Q&A sessions to Notion
+- **Configuration**: `scripts/prepare-mcp-config.sh`
+- **MCP Server**: `@notionhq/notion-mcp-server`
+- **Features**:
+  - Automatic page creation
+  - Organized under "Claude Code" folder
+  - Includes metadata and timestamps
+
 ## Common Tasks
 
 ### Adding a New Model

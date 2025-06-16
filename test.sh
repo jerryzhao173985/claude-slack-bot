@@ -44,12 +44,27 @@ if [ "$all_exist" = false ]; then
     exit 1
 fi
 
-# Test 3: Check model selection patterns
+# Test 3: Check Notion configuration
 echo ""
-echo "3. Model selection test patterns..."
+echo "3. Checking Notion integration..."
+if grep -q "notionApi" scripts/prepare-mcp-config.sh; then
+    echo -e "${GREEN}✅ Notion MCP server configured${NC}"
+else
+    echo -e "${RED}❌ Notion MCP server missing${NC}"
+fi
+
+if grep -q "mcp__notionApi__create_page" .github/workflows/claude-code-processor-ultimate.yml; then
+    echo -e "${GREEN}✅ Notion tools in allowed_tools${NC}"
+else
+    echo -e "${YELLOW}⚠️  Notion tools not in allowed_tools${NC}"
+fi
+
+# Test 4: Check model selection patterns
+echo ""
+echo "4. Model selection test patterns..."
 echo -e "${YELLOW}Test these in Slack after deployment:${NC}"
 echo ""
-echo "Basic:"
+echo "Basic (will save to Notion):"
 echo "  @claude hello"
 echo ""
 echo "Model Selection:"
@@ -60,9 +75,12 @@ echo ""
 echo "Auto-selection:"
 echo "  @claude write a comprehensive analysis"
 echo ""
+echo "Notion Integration:"
+echo "  Check Notion for 'Claude Code' folder after each question"
+echo ""
 
-# Test 4: Check npm scripts
-echo "4. Checking npm scripts..."
+# Test 5: Check npm scripts
+echo "5. Checking npm scripts..."
 if npm run --silent typecheck > /dev/null 2>&1; then
     echo -e "${GREEN}✅ TypeScript check passed${NC}"
 else

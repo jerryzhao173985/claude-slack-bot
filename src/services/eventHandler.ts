@@ -95,11 +95,10 @@ export class EventHandler {
   }
 
   private extractMCPTools(text: string): string[] {
-    const defaultTools = ['slack'];
+    // Always include slack and notionApi for Q&A recording
+    const defaultTools = ['slack', 'notionApi'];
 
-    if (text.toLowerCase().includes('notion')) {
-      defaultTools.push('notionApi');
-    }
+    // Conditionally add github if mentioned
     if (text.toLowerCase().includes('github') || text.toLowerCase().includes('code')) {
       defaultTools.push('github');
     }
