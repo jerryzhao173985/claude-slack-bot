@@ -1,0 +1,143 @@
+name: Claude Code Working Solution
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      mcp_tools:
+        description: "Comma-separated list of MCP tools to enable"
+        required: false
+        type: string
+        default: ""
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "System prompt with thread context"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup environment
+        run: |
+          # Create directory for outputs
+          mkdir -p outputs
+          
+          # Create the instruction file
+          cat > instruction.md << 'EOF'
+          ## Task
+          Please answer the following question from a Slack user:
+          
+          Question: ${{ github.event.inputs.question }}
+          
+          ${{ github.event.inputs.system_prompt }}
+          
+          ## Instructions
+          1. Think through the question carefully
+          2. Provide a helpful, clear, and concise response
+          3. Save your response to a file called `outputs/slack_response.txt`
+          4. The response should be properly formatted for Slack (you can use Slack markdown)
+          5. Keep your response focused and directly address the user's question
+          
+          ## Important
+          - DO NOT use any MCP tools for this task
+          - Just analyze the question and save your response to the file
+          - Make sure the file is saved in the `outputs` directory
+          EOF
+      
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            Read the instructions in instruction.md and complete the task.
+            Remember to save your response to outputs/slack_response.txt
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: claude-3-5-sonnet-20241022
+          allowed_tools: "Read,Write,Bash"
+          max_turns: 5
+          working_directory: "."
+      
+      - name: Check output
+        run: |
+          if [ -f "outputs/slack_response.txt" ]; then
+            echo "✅ Response file created successfully"
+            echo "Content:"
+            cat outputs/slack_response.txt
+          else
+            echo "❌ Response file not found"
+            echo "Creating default response..."
+            mkdir -p outputs
+            echo "I've processed your request. Please check the action logs for details." > outputs/slack_response.txt
+          fi
+      
+      - name: Update Slack message
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Read the response
+          if [ -f "outputs/slack_response.txt" ]; then
+            RESPONSE=$(cat outputs/slack_response.txt)
+          else
+            RESPONSE="I encountered an issue processing your request. Please try again."
+          fi
+          
+          # Escape for JSON
+          ESCAPED_RESPONSE=$(echo "$RESPONSE" | jq -Rs .)
+          
+          # Try to update the message
+          echo "Attempting to update Slack message..."
+          UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+              \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+              \"text\": $ESCAPED_RESPONSE
+            }")
+          
+          # Check result
+          if echo "$UPDATE_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+            echo "✅ Successfully updated Slack message"
+          else
+            ERROR=$(echo "$UPDATE_RESULT" | jq -r '.error // "unknown"')
+            echo "❌ Failed to update message: $ERROR"
+            echo "Full response: $UPDATE_RESULT"
+            
+            # If update fails, post as a reply
+            echo "Posting as reply instead..."
+            REPLY_RESULT=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                \"thread_ts\": \"${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}\",
+                \"text\": $ESCAPED_RESPONSE
+              }")
+            
+            if echo "$REPLY_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+              echo "✅ Posted as reply successfully"
+            else
+              echo "❌ Failed to post reply: $(echo "$REPLY_RESULT" | jq -r '.error // "unknown"')"
+            fi
+          fi
