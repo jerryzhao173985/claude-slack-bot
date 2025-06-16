@@ -68,13 +68,13 @@ else
     echo -e "${RED}❌ Thinking mode not configured${NC}"
 fi
 
-# Test 3c: Check permission mode
+# Test 3c: Check permission skip configuration
 echo ""
-echo "3c. Checking permission mode..."
-if grep -q 'permission_mode: "all"' .github/workflows/claude-code-processor-ultimate.yml; then
-    echo -e "${GREEN}✅ Permission mode set to 'all' for MCP access${NC}"
+echo "3c. Checking permission skip configuration..."
+if grep -q "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true" .github/workflows/claude-code-processor-ultimate.yml; then
+    echo -e "${GREEN}✅ Permission skip configured for MCP access${NC}"
 else
-    echo -e "${RED}❌ Permission mode not configured for MCP access${NC}"
+    echo -e "${RED}❌ Permission skip not configured for MCP access${NC}"
 fi
 
 # Test 4: Check thread context configuration

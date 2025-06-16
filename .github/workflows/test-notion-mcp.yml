@@ -52,7 +52,6 @@ jobs:
             Save your findings to: outputs/notion-test-results.txt
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: "claude-3-5-sonnet-20241022"
-          permission_mode: "all"
           allowed_tools: "mcp__notionApi__API-get-self,mcp__notionApi__API-post-search,mcp__notionApi__API-post-page,Write"
           mcp_config: |
             {
@@ -71,6 +70,7 @@ jobs:
             ANTHROPIC_PROMPT_CACHING=1
             CLAUDE_CODE_AUTORUN_TOOLS=true
             CLAUDE_CODE_THINKING=false
+            CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true
       
       - name: Display Test Results
         if: always()
