@@ -18,13 +18,13 @@ The Claude Slack Bot automatically saves every question and response to your Not
 1. Go to [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations)
 2. Click "+ New integration"
 3. Configure:
-   - Name: "Claude Slack Bot"
+   - Name: "Claude Code"
    - Associated workspace: Select your workspace
    - Capabilities: 
      - ✅ Read content
      - ✅ Update content
      - ✅ Insert content
-4. Copy the "Internal Integration Token"
+4. Copy the "Internal Integration Token" (starts with `secret_`)
 
 ### 2. Add Integration to GitHub Secrets
 
@@ -35,12 +35,18 @@ Name: NOTION_KEY
 Value: [paste your integration token]
 ```
 
-### 3. Share Pages with Integration
+### 3. Create Parent Page in Notion
 
-In Notion:
-1. Create a page titled "Claude Code" (or it will be created automatically)
-2. Click "..." menu → "Add connections" → Select your integration
-3. The bot will create all Q&A pages under this parent
+Since internal integrations cannot create top-level workspace pages, you need to create a parent page:
+
+1. **Open Notion** in your browser
+2. **Create a new page** called "Claude Code" anywhere in your workspace
+3. **Share it with your integration**:
+   - Click the "..." menu in the top right
+   - Click "Add connections"
+   - Search for "Claude Code" 
+   - Select your integration
+4. The bot will automatically find this page and create all Q&A sessions under it
 
 ## Page Structure
 
@@ -85,23 +91,32 @@ Title: [User's Question]
 
 1. **Check Integration Token**:
    - Verify `NOTION_KEY` is set in GitHub Secrets
-   - Ensure token has correct permissions
+   - Ensure token starts with `secret_`
+   - Verify token has correct permissions
 
-2. **Check Logs**:
+2. **Check Parent Page**:
+   - Ensure "Claude Code" page exists in Notion
+   - Verify it's shared with the integration
+   - Check the "Add connections" menu shows your integration
+
+3. **Check Logs**:
    ```bash
    # View GitHub Actions logs for errors
    # Look for "Notion" related messages
    ```
-
-3. **Verify Parent Page**:
-   - Ensure "Claude Code" page exists
-   - Check it's shared with the integration
 
 ### Permission Errors?
 
 - Integration needs "Insert content" capability
 - Parent page must be shared with integration
 - Check workspace restrictions
+
+### API Key Status Check
+
+If you're having issues, verify your integration:
+- **Bot Name**: Should match your integration name
+- **Type**: Internal Integration Bot
+- **Workspace**: Should be your Notion workspace
 
 ## Advanced Usage
 
@@ -137,7 +152,10 @@ If you see permission errors for specific Notion tools, you can limit which ones
 
 ## Next Steps
 
-1. Deploy the updated bot: `./deploy.sh`
-2. Test with: `@claude what is 2+2?`
-3. Check Notion for the created page
-4. Start building your knowledge base!
+1. Create your Notion integration
+2. Add the API key to GitHub Secrets
+3. Create and share the "Claude Code" page
+4. Deploy the bot: `./deploy.sh`
+5. Test with: `@claude what is 2+2?`
+6. Check Notion for the created page
+7. Start building your knowledge base!

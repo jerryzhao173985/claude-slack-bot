@@ -1,4 +1,4 @@
-name: Claude Code Processor Ultimate
+name: Claude Code Processor
 
 on:
   workflow_dispatch:
@@ -7,17 +7,12 @@ on:
         description: "User question from Slack"
         required: true
         type: string
-      mcp_tools:
-        description: "Comma-separated list of MCP tools to enable"
-        required: false
-        type: string
-        default: "slack"
       slack_channel:
         description: "Slack channel ID"
         required: true
         type: string
       slack_ts:
-        description: "Slack message timestamp (placeholder)"
+        description: "Slack message timestamp"
         required: true
         type: string
       slack_thread_ts:
@@ -25,7 +20,7 @@ on:
         required: false
         type: string
       system_prompt:
-        description: "System prompt with thread context"
+        description: "Additional context (e.g., thread history)"
         required: false
         type: string
       model:
@@ -35,7 +30,7 @@ on:
         default: "claude-sonnet-4-20250514"
 
 jobs:
-  run-claude:
+  process-request:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
@@ -43,112 +38,102 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Create outputs directory
+      - name: Setup environment
         run: mkdir -p outputs
       
-      - name: Set Claude Environment Variables
-        id: set-env
+      - name: Configure Claude settings
+        id: claude-config
         run: |
-          # Enable thinking for models that support it
+          # Model-specific settings
           if [[ "${{ github.event.inputs.model }}" == "claude-3-5-sonnet-20241022" ]]; then
-            echo "Model 3.5 doesn't support thinking, disabling it"
-            echo "claude_env<<EOF" >> $GITHUB_OUTPUT
-            echo "ANTHROPIC_PROMPT_CACHING=1" >> $GITHUB_OUTPUT
-            echo "CLAUDE_CODE_AUTORUN_TOOLS=true" >> $GITHUB_OUTPUT
-            echo "CLAUDE_CODE_THINKING=false" >> $GITHUB_OUTPUT
-            echo "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            THINKING="false"
           else
-            echo "Model supports thinking, enabling it"
-            echo "claude_env<<EOF" >> $GITHUB_OUTPUT
-            echo "ANTHROPIC_PROMPT_CACHING=1" >> $GITHUB_OUTPUT
-            echo "CLAUDE_CODE_AUTORUN_TOOLS=true" >> $GITHUB_OUTPUT
-            echo "CLAUDE_CODE_THINKING=true" >> $GITHUB_OUTPUT
-            echo "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            THINKING="true"
           fi
+          
+          # Output environment variables
+          cat > claude_env.txt << EOF
+          ANTHROPIC_PROMPT_CACHING=1
+          CLAUDE_CODE_AUTORUN_TOOLS=true
+          CLAUDE_CODE_THINKING=$THINKING
+          CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true
+          EOF
+          
+          # Set output for GitHub Actions
+          echo "claude_env<<EOF" >> $GITHUB_OUTPUT
+          cat claude_env.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       
-      - name: Run Claude Code with Proper Permissions
+      - name: Process with Claude
         uses: anthropics/claude-code-base-action@beta
         with:
           prompt: |
-            You are a helpful Slack bot assistant. A user has asked you a question in Slack.
+            You are Claude, a helpful Slack bot assistant.
             
-            User question: ${{ github.event.inputs.question }}
-            Slack channel: ${{ github.event.inputs.slack_channel }}
-            Thread timestamp: ${{ github.event.inputs.slack_thread_ts }}
-            Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            **User Question:** ${{ github.event.inputs.question }}
+            **Channel:** ${{ github.event.inputs.slack_channel }}
+            **Thread:** ${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}
+            **Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
             
-            THREAD CONTEXT AWARENESS:
-            - If the user asks about "this thread", "the conversation", "what was discussed", "summarize above", etc., check if thread context is provided in your system prompt
-            - If no thread context is available in system prompt and the user is asking about thread content, use mcp__slack__slack_get_thread_replies with:
+            ## Instructions
+            
+            ### 1. Save to Notion (if available)
+            - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
+            - If found, create a sub-page with:
+              - **Title:** Clean, descriptive title (max 50 chars, no @ mentions)
+              - **Structure:**
+                - H1: Title
+                - H2: Question → Full user question
+                - H2: Answer → Your response
+                - H2: Metadata → Timestamp, channel, model
+            - Use `mcp__notionApi__API-post-page` and `mcp__notionApi__API-patch-block-children`
+            
+            ### 2. Reply to Slack
+            - Use `mcp__slack__slack_reply_to_thread`:
               - channel_id: "${{ github.event.inputs.slack_channel }}"
-              - thread_ts: "${{ github.event.inputs.slack_thread_ts }}"
-            - When summarizing threads, organize by topic and participant contributions
+              - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
+              - text: Your response
             
-            Please provide a helpful and concise response to the user's question.
+            ### 3. Thread Context
+            - If user mentions "this thread" or "above", check system prompt for context
+            - If needed, use `mcp__slack__slack_get_thread_replies` to fetch history
             
-            IMPORTANT STEPS TO FOLLOW IN ORDER:
-            
-            1. First, save this Q&A session to Notion:
-               a) Search for a page titled "Claude Code" using mcp__notionApi__API-post-search
-               b) If "Claude Code" page is not found, skip Notion saving and just reply to Slack
-               c) If found, create a new page under "Claude Code" with:
-                  - Title: Create a simple, clear title from the user's question:
-                    * Remove @ mentions and special characters
-                    * Keep it under 50 characters
-                    * Make it descriptive (e.g., "How to use Python decorators" not just "decorators")
-                    * If it's a greeting, use "Chat Session - [date]"
-                  - Content structure:
-                    * Heading 1: The clean title
-                    * Heading 2: "Question"
-                    * Paragraph: The full user question
-                    * Heading 2: "Answer"
-                    * Paragraph(s): Your complete response
-                    * Heading 2: "Metadata"
-                    * Bulleted list:
-                      - Timestamp: [current time]
-                      - Slack Channel: [channel ID]
-                      - Model: [model used]
-                      - User: [username if available]
-               d) Use mcp__notionApi__API-post-page to create the page
-               e) Use mcp__notionApi__API-patch-block-children to add the content blocks
-            
-            2. Then, send your response to Slack:
-               - Use mcp__slack__slack_reply_to_thread tool:
-                 - channel_id: "${{ github.event.inputs.slack_channel }}"
-                 - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
-                 - text: Your complete response
-            
-            3. If Slack reply fails, save your response to: outputs/slack_response.txt
-            
-            Make sure to complete BOTH the Notion save AND the Slack reply.
+            ### 4. Fallback
+            - If Slack reply fails, save response to: `outputs/slack_response.txt`
+          
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: ${{ github.event.inputs.model }}
           append_system_prompt: ${{ github.event.inputs.system_prompt }}
-          # Correct comma-separated format with all necessary tools including Notion
-          allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,mcp__notionApi__API-post-search,mcp__notionApi__API-post-comments,mcp__notionApi__API-post-page,mcp__notionApi__API-get-page,mcp__notionApi__API-get-blocks,mcp__notionApi__API-post-blocks,mcp__notionApi__API-patch-blocks,mcp__notionApi__API-delete-blocks,mcp__notionApi__API-get-databases,mcp__notionApi__API-post-databases,mcp__notionApi__API-get-users,mcp__notionApi__API-get-comments,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
+          allowed_tools: |
+            mcp__slack__slack_reply_to_thread,
+            mcp__slack__slack_get_thread_replies,
+            mcp__slack__slack_get_users,
+            mcp__slack__slack_get_user_profile,
+            mcp__notionApi__API-post-search,
+            mcp__notionApi__API-post-page,
+            mcp__notionApi__API-patch-block-children,
+            Write,Read,Bash,WebSearch
           mcp_config: |
             {
               "mcpServers": {
-                "notionApi": {
-                  "command": "npx",
-                  "args": ["-y","@notionhq/notion-mcp-server"],
-                  "env": { 
-                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
-                  }
-                },
                 "slack": {
                   "command": "npx",
-                  "args": ["-y","@modelcontextprotocol/server-slack"],
+                  "args": ["-y", "@modelcontextprotocol/server-slack"],
                   "env": { 
                     "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
                     "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}" 
                   }
                 },
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y", "@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                },
                 "github": {
                   "command": "npx",
-                  "args": ["-y","@modelcontextprotocol/server-github"],
+                  "args": ["-y", "@modelcontextprotocol/server-github"],
                   "env": { 
                     "GITHUB_TOKEN": "${{ secrets.GH_TOKEN }}" 
                   }
@@ -156,28 +141,19 @@ jobs:
               }
             }
           max_turns: 15
-          claude_env: ${{ steps.set-env.outputs.claude_env }}
+          claude_env: ${{ steps.claude-config.outputs.claude_env }}
       
-      - name: Update Slack if MCP failed
+      - name: Fallback Slack update
         if: always()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
-          # Check if response file was created (fallback)
+          # Only run if response file exists (indicating MCP failure)
           if [ -f "outputs/slack_response.txt" ]; then
-            echo "Found fallback response file"
             RESPONSE=$(cat outputs/slack_response.txt)
-          else
-            # Check for any response in the logs
-            echo "No response file found"
-            RESPONSE=""
-          fi
-          
-          # Only update if we have a response (MCP might have already handled it)
-          if [ -n "$RESPONSE" ]; then
             ESCAPED_RESPONSE=$(echo "$RESPONSE" | jq -Rs .)
             
-            echo "Updating Slack message with fallback..."
+            # Try to update the placeholder message
             UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               -H "Content-Type: application/json" \
@@ -187,10 +163,8 @@ jobs:
                 \"text\": $ESCAPED_RESPONSE
               }")
             
-            if echo "$UPDATE_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
-              echo "✅ Updated via fallback"
-            else
-              echo "Fallback update failed, posting as reply..."
+            if echo "$UPDATE_RESULT" | jq -e '.ok != true' > /dev/null 2>&1; then
+              # If update fails, post as reply
               curl -X POST https://slack.com/api/chat.postMessage \
                 -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
                 -H "Content-Type: application/json" \
@@ -200,6 +174,4 @@ jobs:
                   \"text\": $ESCAPED_RESPONSE
                 }"
             fi
-          else
-            echo "No fallback needed - MCP likely handled the response"
           fi
