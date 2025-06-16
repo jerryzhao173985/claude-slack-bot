@@ -1,0 +1,22 @@
+name = "claude-slack-bot"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+node_compat = true
+
+[env.production]
+name = "claude-slack-bot"
+
+[[kv_namespaces]]
+binding = "THREAD_CACHE"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_KV_PREVIEW_ID"
+
+[vars]
+GITHUB_OWNER = "your-github-username"
+GITHUB_REPO = "claude-slack-bot"
+GITHUB_WORKFLOW_FILE = "claude-code-processor.yml"
+
+# Secrets to be set with wrangler secret put:
+# SLACK_SIGNING_SECRET
+# SLACK_BOT_TOKEN
+# GITHUB_TOKEN

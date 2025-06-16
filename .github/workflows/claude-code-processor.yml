@@ -1,0 +1,65 @@
+name: Claude Code Processor
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      mcp_tools:
+        description: "Comma-separated list of MCP tools to enable"
+        required: false
+        type: string
+        default: "slack"
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp (placeholder)"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "System prompt with thread context"
+        required: false
+        type: string
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Prepare MCP configuration
+        run: |
+          bash scripts/prepare-mcp-config.sh
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_TEAM_ID: ${{ secrets.SLACK_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      
+      - name: Run Claude Code
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            ${{ github.event.inputs.system_prompt }}
+            
+            User question: ${{ github.event.inputs.question }}
+            
+            Important: When you have finished processing the user's request, you MUST update the Slack message using the mcp__slack__chat_update tool with these parameters:
+            - channel: ${{ github.event.inputs.slack_channel }}
+            - ts: ${{ github.event.inputs.slack_ts }}
+            - text: Your final response to the user
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          mcp_config_path: "./mcp-config.json"
+          allowed_tools: "${{ github.event.inputs.mcp_tools }},Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
+          max_turns: 5
