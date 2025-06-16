@@ -75,6 +75,21 @@ claude-slack-bot/
   - Organized under "Claude Code" folder
   - Includes metadata and timestamps
 
+### 5. Thread Context System
+- **Components**:
+  - `SlackClient.getThreadContext()`: Fetches up to 50 thread messages
+  - `GitHubDispatcher.buildSystemPrompt()`: Formats thread history
+  - Workflow: Uses `append_system_prompt` to pass context to Claude
+- **Caching**:
+  - Thread messages: 1 minute TTL
+  - User names: 24 hour TTL
+- **Features**:
+  - Automatic thread detection
+  - Chronological message ordering
+  - User name resolution
+  - Bot message indicators
+  - Visual formatting with timestamps
+
 ## Common Tasks
 
 ### Adding a New Model

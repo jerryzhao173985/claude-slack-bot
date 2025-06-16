@@ -37,15 +37,40 @@ export class GitHubDispatcher {
 
   buildSystemPrompt(context: SlackMessage[]): string {
     if (context.length === 0) {
-      return 'You are a helpful assistant responding to a Slack message.';
+      return '';
     }
 
-    const threadHistory = context.map((msg) => `${msg.user} (${msg.ts}): ${msg.text}`).join('\n');
+    // Sort messages by timestamp to ensure chronological order
+    const sortedContext = [...context].sort((a, b) => Number(a.ts) - Number(b.ts));
+    
+    // Format timestamps to be more readable
+    const formatTimestamp = (ts: string) => {
+      const date = new Date(Number(ts) * 1000);
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    };
 
-    return `You are a helpful assistant responding to a Slack thread. Here is the conversation history:
+    // Build thread history with better formatting
+    const threadHistory = sortedContext.map((msg, index) => {
+      const time = formatTimestamp(msg.ts);
+      const userLabel = msg.isBot ? `${msg.user} (bot)` : msg.user;
+      const prefix = index === sortedContext.length - 1 ? '➤' : '•';
+      
+      return `${prefix} [${time}] ${userLabel}: ${msg.text}`;
+    }).join('\n');
+
+    return `
+
+SLACK THREAD CONTEXT:
+This is a Slack thread with ${context.length} messages. Here is the complete conversation history in chronological order:
 
 ${threadHistory}
 
-Please provide a helpful response to the latest message. When you're done, use the mcp__slack__chat_update tool to update the placeholder message.`;
+The message marked with ➤ is the most recent one that you're responding to.
+Use this context to provide relevant and contextual responses.
+When summarizing, consider the flow of conversation and key points from each participant.`;
   }
 }

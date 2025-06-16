@@ -68,9 +68,33 @@ else
     echo -e "${RED}❌ Thinking mode not configured${NC}"
 fi
 
-# Test 4: Check model selection patterns
+# Test 3c: Check permission mode
 echo ""
-echo "4. Model selection test patterns..."
+echo "3c. Checking permission mode..."
+if grep -q 'permission_mode: "all"' .github/workflows/claude-code-processor-ultimate.yml; then
+    echo -e "${GREEN}✅ Permission mode set to 'all' for MCP access${NC}"
+else
+    echo -e "${RED}❌ Permission mode not configured for MCP access${NC}"
+fi
+
+# Test 4: Check thread context configuration
+echo ""
+echo "4. Checking thread context configuration..."
+if grep -q "append_system_prompt:" .github/workflows/claude-code-processor-ultimate.yml; then
+    echo -e "${GREEN}✅ Thread context passing configured${NC}"
+else
+    echo -e "${RED}❌ Thread context not configured${NC}"
+fi
+
+if grep -q "THREAD CONTEXT AWARENESS" .github/workflows/claude-code-processor-ultimate.yml; then
+    echo -e "${GREEN}✅ Thread-aware instructions found${NC}"
+else
+    echo -e "${YELLOW}⚠️  Thread-aware instructions missing${NC}"
+fi
+
+# Test 5: Check model selection patterns
+echo ""
+echo "5. Model selection test patterns..."
 echo -e "${YELLOW}Test these in Slack after deployment:${NC}"
 echo ""
 echo "Basic (will save to Notion):"
@@ -81,6 +105,11 @@ echo "  @claude /model advanced explain AI"
 echo "  @claude fast mode what's 2+2?"
 echo "  @claude using sonnet-4 write code"
 echo ""
+echo "Thread Context:"
+echo "  In a thread: @claude summarize this thread"
+echo "  In a thread: @claude what was discussed above?"
+echo "  In a thread: @claude what's the consensus here?"
+echo ""
 echo "Auto-selection:"
 echo "  @claude write a comprehensive analysis"
 echo ""
@@ -88,8 +117,9 @@ echo "Notion Integration:"
 echo "  Check Notion for 'Claude Code' folder after each question"
 echo ""
 
-# Test 5: Check npm scripts
-echo "5. Checking npm scripts..."
+# Test 6: Check npm scripts
+echo ""
+echo "6. Checking npm scripts..."
 if npm run --silent typecheck > /dev/null 2>&1; then
     echo -e "${GREEN}✅ TypeScript check passed${NC}"
 else

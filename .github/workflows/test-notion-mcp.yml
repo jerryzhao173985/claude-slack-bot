@@ -1,0 +1,83 @@
+name: Test Notion MCP Integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-notion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Create outputs directory
+        run: mkdir -p outputs
+      
+      - name: Test Notion Token
+        env:
+          NOTION_KEY: ${{ secrets.NOTION_KEY }}
+        run: |
+          echo "Testing Notion token format..."
+          if [[ "$NOTION_KEY" == secret_* ]]; then
+            echo "✅ Token format is correct (starts with secret_)"
+          else
+            echo "❌ Token format may be incorrect (should start with secret_)"
+          fi
+          
+          echo ""
+          echo "Testing Notion API directly..."
+          RESPONSE=$(curl -s -X GET 'https://api.notion.com/v1/users/me' \
+            -H "Authorization: Bearer $NOTION_KEY" \
+            -H "Notion-Version: 2022-06-28")
+          
+          if echo "$RESPONSE" | jq -e '.object == "user"' > /dev/null 2>&1; then
+            echo "✅ Notion API connection successful"
+            echo "User type: $(echo "$RESPONSE" | jq -r '.type')"
+            echo "User ID: $(echo "$RESPONSE" | jq -r '.id')"
+          else
+            echo "❌ Notion API connection failed"
+            echo "Response: $RESPONSE"
+          fi
+      
+      - name: Run Claude Code with Notion Test
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            Test the Notion MCP integration by performing these steps:
+            
+            1. Use mcp__notionApi__API-get-self to verify connection
+            2. Use mcp__notionApi__API-post-search to search for "Claude Code Test"
+            3. Report the results
+            
+            Save your findings to: outputs/notion-test-results.txt
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: "claude-3-5-sonnet-20241022"
+          permission_mode: "all"
+          allowed_tools: "mcp__notionApi__API-get-self,mcp__notionApi__API-post-search,mcp__notionApi__API-post-page,Write"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y","@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                }
+              }
+            }
+          max_turns: 10
+          claude_env: |
+            ANTHROPIC_PROMPT_CACHING=1
+            CLAUDE_CODE_AUTORUN_TOOLS=true
+            CLAUDE_CODE_THINKING=false
+      
+      - name: Display Test Results
+        if: always()
+        run: |
+          echo "=== Test Results ==="
+          if [ -f "outputs/notion-test-results.txt" ]; then
+            cat outputs/notion-test-results.txt
+          else
+            echo "No test results file found"
+          fi

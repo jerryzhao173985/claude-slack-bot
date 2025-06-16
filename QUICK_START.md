@@ -27,6 +27,14 @@ Make sure you have:
 @claude smart mode write documentation
 ```
 
+### Thread Context
+```
+# In a Slack thread:
+@claude summarize this thread
+@claude what was discussed about the API design?
+@claude what's the consensus here?
+```
+
 ## Monitor
 
 ```bash

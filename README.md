@@ -21,8 +21,9 @@ A Slack bot powered by Claude with MCP (Model Context Protocol) integration. Thi
 - **Model Selection**: Choose between Sonnet 3.5, 3.7, or 4 with natural language or slash commands
 - **Thinking Mode**: Automatic deep reasoning for supported models (3.7 & 4) with visual indicator 🧠
 - **Notion Integration**: Automatically saves all Q&A sessions to your Notion workspace
-- **Thread Context**: Maintains conversation context within Slack threads
+- **Thread Context**: Full thread awareness - Claude reads and understands entire Slack thread conversations
 - **Smart Model Detection**: Automatically selects advanced models for complex requests
+- **Thread Summarization**: Ask Claude to summarize threads, find key points, or answer questions about the discussion
 
 ## Prerequisites
 

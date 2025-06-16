@@ -74,7 +74,15 @@ jobs:
             
             User question: ${{ github.event.inputs.question }}
             Slack channel: ${{ github.event.inputs.slack_channel }}
+            Thread timestamp: ${{ github.event.inputs.slack_thread_ts }}
             Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            
+            THREAD CONTEXT AWARENESS:
+            - If the user asks about "this thread", "the conversation", "what was discussed", "summarize above", etc., check if thread context is provided in your system prompt
+            - If no thread context is available in system prompt and the user is asking about thread content, use mcp__slack__slack_get_thread_replies with:
+              - channel_id: "${{ github.event.inputs.slack_channel }}"
+              - thread_ts: "${{ github.event.inputs.slack_thread_ts }}"
+            - When summarizing threads, organize by topic and participant contributions
             
             Please provide a helpful and concise response to the user's question.
             
@@ -89,7 +97,7 @@ jobs:
                     - Question section with the full question
                     - Answer section with your complete response
                     - Metadata section with timestamp, channel ID, and model used
-               d) Use mcp__notionApi__API-post-pages and mcp__notionApi__API-post-blocks as needed
+               d) Use mcp__notionApi__API-post-page and mcp__notionApi__API-post-blocks as needed
             
             2. Then, send your response to Slack:
                - Use mcp__slack__slack_reply_to_thread tool:
@@ -102,8 +110,9 @@ jobs:
             Make sure to complete BOTH the Notion save AND the Slack reply.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: ${{ github.event.inputs.model }}
+          append_system_prompt: ${{ github.event.inputs.system_prompt }}
           # Correct comma-separated format with all necessary tools including Notion
-          allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,mcp__notionApi__API-post-search,mcp__notionApi__API-post-comments,mcp__notionApi__API-post-pages,mcp__notionApi__API-get-pages,mcp__notionApi__API-get-blocks,mcp__notionApi__API-post-blocks,mcp__notionApi__API-patch-blocks,mcp__notionApi__API-delete-blocks,mcp__notionApi__API-get-databases,mcp__notionApi__API-post-databases,mcp__notionApi__API-get-users,mcp__notionApi__API-get-comments,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
+          allowed_tools: "mcp__slack__slack_list_channels,mcp__slack__slack_post_message,mcp__slack__slack_reply_to_thread,mcp__slack__slack_add_reaction,mcp__slack__slack_get_channel_history,mcp__slack__slack_get_thread_replies,mcp__slack__slack_get_users,mcp__slack__slack_get_user_profile,mcp__notionApi__API-post-search,mcp__notionApi__API-post-comments,mcp__notionApi__API-post-page,mcp__notionApi__API-get-page,mcp__notionApi__API-get-blocks,mcp__notionApi__API-post-blocks,mcp__notionApi__API-patch-blocks,mcp__notionApi__API-delete-blocks,mcp__notionApi__API-get-databases,mcp__notionApi__API-post-databases,mcp__notionApi__API-get-users,mcp__notionApi__API-get-comments,Write,Read,Edit,MultiEdit,Bash(echo:*),Bash(cat:*),Bash(ls:*),Glob,Grep,LS,Task,TodoRead,TodoWrite,WebSearch,WebFetch"
           mcp_config: |
             {
               "mcpServers": {
@@ -132,6 +141,7 @@ jobs:
               }
             }
           max_turns: 15
+          permission_mode: "all"
           claude_env: ${{ steps.set-env.outputs.claude_env }}
       
       - name: Update Slack if MCP failed

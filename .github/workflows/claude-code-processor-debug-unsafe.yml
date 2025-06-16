@@ -1,0 +1,44 @@
+name: Claude Code Processor Debug (Unsafe)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_query:
+        description: "Test query"
+        required: true
+        type: string
+        default: "Search for pages in Notion"
+
+jobs:
+  debug-claude-unsafe:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Run Claude Code with Skip Permissions
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt: |
+            Debug test: ${{ github.event.inputs.test_query }}
+            
+            Try to use mcp__notionApi__API-post-search to search for any pages.
+            Report exactly what happens.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: "claude-3-5-sonnet-20241022"
+          allowed_tools: "mcp__notionApi__API-post-search,mcp__notionApi__API-get-users,Write"
+          mcp_config: |
+            {
+              "mcpServers": {
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y","@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                }
+              }
+            }
+          max_turns: 3
+          dangerously_skip_permissions: true
