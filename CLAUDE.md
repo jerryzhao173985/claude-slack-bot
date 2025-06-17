@@ -30,20 +30,42 @@ The official `@modelcontextprotocol/server-slack` npm package provides these too
 
 **Note**: There is NO message update tool in the MCP Slack server. This is why we handle message updates outside of MCP.
 
-### Recommended Workflow
+### Workflow Differences
 
-Use `claude-code-processor-best.yml` which:
-1. Lets Claude use any MCP tools for processing
-2. Asks Claude to save the final response to `slack_response.txt`
-3. Updates the Slack placeholder message using the Slack API directly
+**Best Experience Workflow:**
+- Claude processes the request using MCP tools
+- Saves the complete response to `outputs/slack_response.txt`
+- Workflow updates the "Working..." placeholder message
+- Result: Clean, seamless message update
 
-This provides the cleanest user experience - the "Working..." message seamlessly transforms into Claude's response.
+**Legacy Workflow:**
+- Claude uses `slack_reply_to_thread` MCP tool
+- Falls back to file save if MCP fails
+- Result: New message in thread (not as clean)
 
 ## Configuration
 
+### Choose Your Workflow
+
+Two workflows are available:
+
+1. **`claude-code-processor-best.yml`** (Recommended)
+   - Updates the placeholder message for seamless experience
+   - Claude saves response to file, workflow handles Slack update
+   - No duplicate messages in threads
+
+2. **`claude-code-processor.yml`** (Legacy)
+   - Uses MCP to reply to thread (creates new message)
+   - Fallback saves to file if MCP fails
+   - May result in duplicate messages
+
 Set the workflow file in Cloudflare:
 ```bash
+# Recommended
 wrangler secret put GITHUB_WORKFLOW_FILE --value "claude-code-processor-best.yml"
+
+# Or legacy
+wrangler secret put GITHUB_WORKFLOW_FILE --value "claude-code-processor.yml"
 ```
 
 ## Available MCP Servers

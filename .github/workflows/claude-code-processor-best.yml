@@ -1,0 +1,266 @@
+name: Claude Code Processor (Best Experience)
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "User question from Slack"
+        required: true
+        type: string
+      slack_channel:
+        description: "Slack channel ID"
+        required: true
+        type: string
+      slack_ts:
+        description: "Slack message timestamp"
+        required: true
+        type: string
+      slack_thread_ts:
+        description: "Slack thread timestamp"
+        required: false
+        type: string
+      system_prompt:
+        description: "Additional context (e.g., thread history)"
+        required: false
+        type: string
+      model:
+        description: "Claude model to use"
+        required: false
+        type: string
+        default: "claude-sonnet-4-20250514"
+      mcp_tools:
+        description: "Comma-separated list of MCP tools"
+        required: false
+        type: string
+      repository_context:
+        description: "JSON string with repository context information"
+        required: false
+        type: string
+      max_turns:
+        description: "Maximum conversation turns (dynamically calculated)"
+        required: false
+        type: string
+        default: "15"
+
+jobs:
+  process-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup environment
+        run: |
+          mkdir -p outputs
+          mkdir -p ~/.local/bin
+      
+      - name: Install GitHub MCP Server
+        run: |
+          echo "Downloading github-mcp-server binary..."
+          curl -L https://github.com/github/github-mcp-server/releases/download/v0.5.0/github-mcp-server_Linux_x86_64.tar.gz | tar xz -C ~/.local/bin
+          chmod +x ~/.local/bin/github-mcp-server
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Configure Claude settings
+        id: claude-config
+        run: |
+          # Model-specific settings
+          if [[ "${{ github.event.inputs.model }}" == "claude-3-5-sonnet-20241022" ]]; then
+            THINKING="false"
+          else
+            THINKING="true"
+          fi
+          
+          # Output environment variables
+          cat > claude_env.txt << EOF
+          ANTHROPIC_PROMPT_CACHING=1
+          CLAUDE_CODE_AUTORUN_TOOLS=true
+          CLAUDE_CODE_THINKING=$THINKING
+          CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true
+          EOF
+          
+          # Set output for GitHub Actions
+          echo "claude_env<<EOF" >> $GITHUB_OUTPUT
+          cat claude_env.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Process with Claude
+        uses: anthropics/claude-code-base-action@beta
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          prompt: |
+            You are Claude, a helpful Slack bot assistant.
+            
+            **User Question:** ${{ github.event.inputs.question }}
+            **Channel:** ${{ github.event.inputs.slack_channel }}
+            **Thread:** ${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}
+            **Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            
+            ## Instructions
+            
+            ### 1. Process the Request
+            - Analyze the user's question thoroughly
+            - Use any necessary MCP tools to gather information
+            - For GitHub repositories, check the repository context for access level
+            - Repository context is provided in: ${{ github.event.inputs.repository_context }}
+            
+            ### 2. Save to Notion (Optional)
+            - If Notion MCP is available, try to save Q&A to Notion
+            - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
+            - If found, create a sub-page with the conversation
+            
+            ### 3. Save Response to File (REQUIRED)
+            - After completing your analysis and generating your response
+            - Save your COMPLETE response to: `outputs/slack_response.txt`
+            - Use the Write tool to save the file
+            - Format your response appropriately for Slack (use markdown where helpful)
+            - Do NOT include any metadata or instructions in the response
+            - Just save the clean response text that should be shown to the user
+            
+            ### Important Notes
+            - The Slack MCP server cannot update messages, only post new ones
+            - By saving to the file, the workflow can update the placeholder message
+            - This provides a cleaner experience than posting a new reply
+            - Make sure to save the COMPLETE response, not a summary
+          
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: ${{ github.event.inputs.model }}
+          append_system_prompt: ${{ github.event.inputs.system_prompt }}
+          allowed_tools: |
+            Write,
+            Read,
+            Bash,
+            WebSearch,
+            mcp__slack__slack_get_thread_replies,
+            mcp__slack__slack_get_users,
+            mcp__slack__slack_get_user_profile,
+            mcp__slack__slack_get_channel_history,
+            mcp__notionApi__API-post-search,
+            mcp__notionApi__API-post-page,
+            mcp__github__get_me,
+            mcp__github__get_issue,
+            mcp__github__get_issue_comments,
+            mcp__github__list_issues,
+            mcp__github__search_issues,
+            mcp__github__create_issue,
+            mcp__github__add_issue_comment,
+            mcp__github__update_issue,
+            mcp__github__get_pull_request,
+            mcp__github__list_pull_requests,
+            mcp__github__get_pull_request_files,
+            mcp__github__create_pull_request,
+            mcp__github__merge_pull_request,
+            mcp__github__update_pull_request_branch,
+            mcp__github__search_repositories,
+            mcp__github__get_file_contents,
+            mcp__github__list_commits,
+            mcp__github__search_code,
+            mcp__github__create_or_update_file,
+            mcp__github__push_files,
+            mcp__github__create_branch,
+            mcp__github__create_pending_pull_request_review,
+            mcp__github__add_pull_request_review_comment,
+            mcp__github__create_and_submit_pull_request_review,
+            mcp__github__request_copilot_review
+          mcp_config: |
+            {
+              "mcpServers": {
+                "slack": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-slack"],
+                  "env": { 
+                    "SLACK_BOT_TOKEN": "${{ secrets.SLACK_BOT_TOKEN }}",
+                    "SLACK_TEAM_ID": "${{ secrets.SLACK_TEAM_ID }}" 
+                  }
+                },
+                "notionApi": {
+                  "command": "npx",
+                  "args": ["-y", "@notionhq/notion-mcp-server"],
+                  "env": { 
+                    "OPENAPI_MCP_HEADERS": "{\"Authorization\":\"Bearer ${{ secrets.NOTION_KEY }}\",\"Notion-Version\":\"2022-06-28\"}"
+                  }
+                },
+                "github": {
+                  "command": "github-mcp-server",
+                  "args": ["stdio", "--toolsets", "all"],
+                  "env": { 
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GH_TOKEN }}" 
+                  }
+                }
+              }
+            }
+          max_turns: ${{ github.event.inputs.max_turns || '15' }}
+          claude_env: ${{ steps.claude-config.outputs.claude_env }}
+      
+      - name: Log turn allocation
+        if: always()
+        run: |
+          echo "=== Turn Allocation ==="
+          echo "Max Turns: ${{ github.event.inputs.max_turns || '15' }}"
+          echo "======================="
+      
+      - name: Update Slack Message
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Check if response file exists
+          if [ -f "outputs/slack_response.txt" ]; then
+            echo "Found response file, updating Slack message..."
+            RESPONSE=$(cat outputs/slack_response.txt)
+            
+            # Escape the response for JSON
+            ESCAPED_RESPONSE=$(echo "$RESPONSE" | jq -Rs .)
+            
+            # Update the placeholder message
+            UPDATE_RESULT=$(curl -s -X POST https://slack.com/api/chat.update \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+                \"text\": $ESCAPED_RESPONSE
+              }")
+            
+            # Check if update was successful
+            if echo "$UPDATE_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+              echo "Successfully updated Slack message"
+            else
+              echo "Failed to update message, falling back to reply..."
+              ERROR=$(echo "$UPDATE_RESULT" | jq -r '.error // "unknown error"')
+              echo "Error: $ERROR"
+              
+              # Fallback: post as a reply
+              REPLY_RESULT=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+                -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                  \"thread_ts\": \"${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}\",
+                  \"text\": $ESCAPED_RESPONSE
+                }")
+              
+              if echo "$REPLY_RESULT" | jq -e '.ok == true' > /dev/null 2>&1; then
+                echo "Successfully posted reply as fallback"
+              else
+                REPLY_ERROR=$(echo "$REPLY_RESULT" | jq -r '.error // "unknown error"')
+                echo "Failed to post reply: $REPLY_ERROR"
+              fi
+            fi
+          else
+            echo "No response file found, posting error message..."
+            
+            # Post an error message if no response was generated
+            ERROR_MESSAGE=":warning: I encountered an error processing your request. Please check the workflow logs for details."
+            curl -X POST https://slack.com/api/chat.update \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+                \"text\": \"$ERROR_MESSAGE\"
+              }"
+          fi
