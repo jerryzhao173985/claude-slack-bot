@@ -103,6 +103,8 @@ jobs:
             
             ### 1. Process the Request
             - Analyze the user's question thoroughly
+            - CRITICAL: If the question is short (e.g., "do it", "solve this", "continue"), check the thread context to understand what task to complete
+            - Look for unfinished tasks or requests in the thread history and complete them
             - Use any necessary MCP tools to gather information
             - For GitHub repositories, check the repository context for access level
             - Repository context is provided in: ${{ github.event.inputs.repository_context }}

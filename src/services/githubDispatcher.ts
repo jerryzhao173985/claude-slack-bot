@@ -98,6 +98,14 @@ This is a Slack thread with ${context.length} messages. Here is the complete con
 ${threadHistory}
 
 The message marked with ➤ is the most recent one that you're responding to.
+
+IMPORTANT CONTEXT INTERPRETATION:
+- If the latest message is short (e.g., "do it", "solve this", "continue", "go ahead"), it refers to completing a task mentioned earlier in the thread
+- Review the ENTIRE thread history to understand what task needs to be completed
+- Look for any unfinished work, requests, or problems that were discussed but not resolved
+- If a previous message mentioned creating a PR, fixing an issue, or any other specific task, that's what the user wants you to complete
+- DO NOT ask for clarification if the context makes the task clear - proceed with the implementation
+
 Use this context to provide relevant and contextual responses.
 When summarizing, consider the flow of conversation and key points from each participant.`;
   }

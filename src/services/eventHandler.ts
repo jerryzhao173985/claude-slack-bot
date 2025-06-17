@@ -79,6 +79,12 @@ export class EventHandler {
       if (githubContext) {
         systemPrompt += GitHubUtils.buildGitHubPrompt(githubContext);
       }
+      
+      // Add explicit instruction for continuation requests
+      if (this.isContinuationRequest(text) && context.length > 0) {
+        systemPrompt += `\n\nCRITICAL: The user's message "${question}" is a continuation request. You MUST review the thread history above to identify and complete the previously discussed task. Do not ask for clarification - the task is clear from the context.`;
+        this.logger.info('Detected continuation request', { question, threadLength: context.length });
+      }
 
       // Calculate optimal turns based on task complexity
       const contextLength = context ? context.length : 0;
@@ -239,6 +245,20 @@ export class EventHandler {
     return displayNames[model] || model;
   }
 
+  private isContinuationRequest(text: string): boolean {
+    // Common patterns that indicate continuation of a previous request
+    const continuationPatterns = [
+      /^(do\s+it|solve\s+this|continue|go\s+ahead|proceed|yes|ok|sure|finish)$/i,
+      /^(complete|finish|finalize)\s+(it|this|that)?$/i,
+      /^(please\s+)?(do|solve|complete|finish)\s+(it|this|that)$/i,
+      /^go$/i,
+      /^👍|✅|💯$/  // Common affirmative emojis
+    ];
+    
+    const cleanText = this.extractQuestion(text).trim();
+    return continuationPatterns.some(pattern => pattern.test(cleanText));
+  }
+
   private extractGitHubRepository(text: string): string | null {
     // Patterns to match GitHub repositories
     const patterns = [
@@ -304,7 +324,9 @@ export class EventHandler {
       githubComplex: /\b(create|open|submit|merge)\s*(a\s+|an\s+)?(pr|pull request|issue)|push.*(to\s+)?branch|commit.*changes/i,
       majorWork: /\b(implement|build|develop)\s+(new\s+)?(feature|system|api|service|integration)|migrate\s+to|redesign|architect/i,
       debugging: /\b(debug|fix|resolve)\s+(the\s+)?(bug|issue|error|problem|crash)/i,
-      comprehensiveAnalysis: /\banalyze\s+(the\s+)?(entire|whole|complete|all)\s+(codebase|system|project)/i
+      comprehensiveAnalysis: /\banalyze\s+(the\s+)?(entire|whole|complete|all)\s+(codebase|system|project)/i,
+      contextualReference: /\b(do\s+(it|this|that)|solve\s+(this|it|that)|continue|proceed|go\s+ahead|finish\s+(it|this))\b/i,
+      completionRequest: /\b(complete|finish|finalize|wrap\s+up)\s+(the\s+)?(task|work|job|request)/i
     };
     
     // Add turns for complexity markers
@@ -336,11 +358,36 @@ export class EventHandler {
       markerResults.push('comprehensiveAnalysis');
     }
     
+    // Check for contextual references that likely refer to complex tasks in thread
+    if (complexityMarkers.contextualReference.test(text) && threadLength > 0) {
+      turns += 15; // Contextual references usually mean complex unfinished work
+      markerResults.push('contextualReference');
+      this.logger.info('Detected contextual reference in thread', { 
+        text,
+        threadLength,
+        match: text.match(complexityMarkers.contextualReference)?.[0]
+      });
+    }
+    if (complexityMarkers.completionRequest.test(text)) {
+      turns += 10;
+      markerResults.push('completionRequest');
+    }
+    
     this.logger.info('Complexity markers matched', { markerResults, turnsAfterMarkers: turns });
     
     // Thread context (conversations build complexity)
     if (threadLength > 5) turns += 5;
     if (threadLength > 15) turns += 5; // +10 total for long threads
+    
+    // Short messages in threads often indicate continuation of complex tasks
+    if (text.length < 20 && threadLength > 0) {
+      turns += 10;
+      this.logger.info('Short message in thread detected, likely continuation', {
+        textLength: text.length,
+        text,
+        threadLength
+      });
+    }
     
     // Cap at reasonable maximum
     const finalTurns = Math.min(turns, 50);
