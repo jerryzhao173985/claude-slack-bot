@@ -21,7 +21,7 @@ A powerful Slack bot powered by Claude with MCP (Model Context Protocol) integra
 4. **Configure Slack App**
 5. **Start using**: `@claude hello!`
 
-> 📖 For complete setup, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+> 📖 For complete setup, see [Deployment Guide](docs/DEPLOYMENT.md)
 
 ## ✨ Key Features
 
@@ -65,26 +65,26 @@ Three official MCP servers provide seamless integrations:
 - **Notion**: Search and create pages, manage content
 - **GitHub**: Access repos, create issues, manage PRs
 
-## 📚 Complete Documentation
+## 📚 Documentation
 
-### Core Guides
-- [**PROJECT_DOCUMENTATION.md**](PROJECT_DOCUMENTATION.md) - Complete technical documentation
-- [**DEPLOYMENT_GUIDE.md**](DEPLOYMENT_GUIDE.md) - Step-by-step deployment instructions
-- [**TROUBLESHOOTING_GUIDE.md**](TROUBLESHOOTING_GUIDE.md) - Comprehensive troubleshooting
+### 🚀 Getting Started
+- [**Deployment Guide**](docs/DEPLOYMENT.md) - Complete setup instructions
+- [**Quick Start**](docs/quick-start.md) - Get running in 10 minutes
+- [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Solve common issues
 
-### Feature Documentation
-- [Features Guide](docs/features.md) - All features explained
-- [Notion Integration](docs/notion-integration.md) - Set up Q&A archiving
-- [Architecture Guide](docs/architecture.md) - Technical deep dive
+### 📖 Technical Documentation
+- [**Technical Reference**](docs/TECHNICAL_REFERENCE.md) - Complete API and architecture details
+- [**Architecture**](docs/architecture.md) - System design deep dive
+- [**Features Guide**](docs/features.md) - All features explained
 
-### Critical Issues & Fixes
-- [Critical Issues and Fixes](docs/critical-issues-and-fixes.md) - Major bugs encountered and solved
-- [Bug Fixes Consolidated](docs/bug-fixes-consolidated.md) - All fixes in one place
+### 🐛 Issues & Fixes
+- [**Issue Tracker**](docs/issues/) - All documented bugs and resolutions
+- [**Critical Issues**](docs/critical-issues-and-fixes.md) - Major bugs summary
 
-### Additional Resources
-- [Quick Start Guide](docs/quick-start.md) - Get running in 10 minutes
-- [Maintenance Guide](docs/maintenance.md) - Keep your bot healthy
-- [Fallback Options](docs/fallback-options.md) - Simpler alternatives if MCP fails
+### 🔧 Configuration & Integration
+- [**Notion Integration**](docs/notion-integration.md) - Set up Q&A archiving
+- [**Maintenance Guide**](docs/maintenance.md) - Keep your bot healthy
+- [**Fallback Options**](docs/fallback-options.md) - Alternative approaches
 
 ## 🏗️ Architecture
 
@@ -327,7 +327,7 @@ curl https://your-worker.workers.dev/debug/test-dispatch
 | Permission errors | Add `CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true` |
 | Wrong model used | Check exact command format and aliases |
 
-For comprehensive troubleshooting, see [TROUBLESHOOTING_GUIDE.md](TROUBLESHOOTING_GUIDE.md).
+For comprehensive troubleshooting, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
 
 ### Debug Endpoints
 
