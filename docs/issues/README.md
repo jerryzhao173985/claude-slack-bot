@@ -10,6 +10,7 @@ This directory contains detailed documentation of all significant issues encount
 | [002](002-notion-content-missing.md) | Notion Pages Without Content | High | Resolved | Empty documentation pages |
 | [003](003-mcp-permission-errors.md) | MCP Permission Errors in CI | High | Resolved | Tools blocked in workflows |
 | [004](004-workflow-rename-deployment.md) | Workflow Rename Without Redeploy | High | Resolved | Bot stopped responding |
+| [005](005-github-mcp-full-integration.md) | GitHub MCP Full Integration | Enhancement | Implemented | 26+ GitHub tools with smart permissions |
 
 ## Common Patterns
 

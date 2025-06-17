@@ -250,3 +250,207 @@ The bot integrates with official MCP servers:
 - **Drive**: Coming soon
 
 Each tool is dynamically enabled based on your workflow configuration.
+
+---
+
+## 🐙 GitHub Repository Analysis
+
+### Overview
+
+The bot now supports deep GitHub repository analysis using the enhanced GitHub MCP server. You can analyze code, review architecture, find security issues, and more - all through natural language commands in Slack.
+
+### How It Works
+
+1. **Automatic Detection**: The bot detects repository references in your messages
+2. **Tool Activation**: GitHub MCP tools are automatically enabled when needed
+3. **Context Aware**: Repository context is passed to Claude for targeted analysis
+4. **Multiple Formats**: Supports various ways to reference repositories
+
+### Supported Patterns
+
+The bot recognizes repositories in multiple formats:
+
+```
+# Direct repository reference
+@claude analyze jerryzhao173985/reference_model
+
+# GitHub URL
+@claude check https://github.com/owner/repo
+
+# Natural language with repository
+@claude review the code in facebook/react
+
+# Action-oriented commands
+@claude find security issues in my-org/my-project
+@claude explain the architecture of vuejs/vue
+```
+
+### Available Tools
+
+With the enhanced GitHub MCP server, Claude has access to 26+ tools:
+
+1. **Code & Repository Operations**
+   - `get_file_contents`: Read any file in the repository
+   - `search_code`: Find specific patterns or implementations
+   - `list_commits`: Review recent changes and history
+   - `create_or_update_file`: Modify files (owned repos only)
+   - `push_files`: Commit multiple files at once (owned repos only)
+   - `create_branch`: Create new branches (owned repos only)
+   - `search_repositories`: Find repositories
+
+2. **Issue Management**
+   - `list_issues`: See open issues and priorities
+   - `get_issue`: Deep dive into specific issues
+   - `get_issue_comments`: Read issue discussions
+   - `create_issue`: Open new issues
+   - `add_issue_comment`: Comment on issues
+   - `update_issue`: Modify issue details (owned repos only)
+   - `search_issues`: Advanced issue search
+
+3. **Pull Request Operations**
+   - `create_pull_request`: Open new PRs
+   - `list_pull_requests`: View all PRs
+   - `get_pull_request`: Get PR details
+   - `get_pull_request_files`: Review changed files
+   - `merge_pull_request`: Merge PRs (owned repos only)
+   - `update_pull_request_branch`: Update PR with latest changes
+
+4. **Code Review Tools**
+   - `create_pending_pull_request_review`: Start a review
+   - `add_pull_request_review_comment`: Add review comments
+   - `create_and_submit_pull_request_review`: Submit complete review
+   - `request_copilot_review`: Request AI-powered review (experimental)
+
+5. **User & Auth**
+   - `get_me`: Get authenticated user information
+
+### Usage Examples
+
+#### Basic Repository Analysis
+```
+@claude analyze the code structure of anthropics/claude-code-sdk
+```
+Claude will examine the repository structure, key files, and provide insights.
+
+#### Security Review
+```
+@claude find potential security issues in my-company/api-server
+```
+Claude will search for common security patterns and vulnerabilities.
+
+#### Architecture Overview
+```
+@claude explain the architecture of https://github.com/nodejs/node
+```
+Claude will analyze the project structure and explain the architecture.
+
+#### Code Search
+```
+@claude find all authentication implementations in laravel/framework
+```
+Claude will search for specific code patterns across the repository.
+
+#### Issue Analysis
+```
+@claude what are the most critical open issues in kubernetes/kubernetes?
+```
+Claude will review open issues and prioritize them.
+
+### Advanced Features
+
+1. **Multi-Repository Analysis**
+   ```
+   @claude compare the error handling between express/express and fastify/fastify
+   ```
+
+2. **Historical Analysis**
+   ```
+   @claude what major changes happened in react/react in the last month?
+   ```
+
+3. **Code Quality Assessment**
+   ```
+   @claude review code quality and suggest improvements for my-org/backend
+   ```
+
+### Commands for Your Own Repositories
+
+When analyzing your own repositories (e.g., jerryzhao173985/*), you have full write access:
+
+#### Creating and Managing Files
+```
+@claude fix the typo in README.md in jerryzhao173985/my-project
+@claude create a new file called CONTRIBUTING.md with contribution guidelines
+@claude update the package.json to add a new dependency
+```
+
+#### Branch and PR Management
+```
+@claude create a branch called feature/new-api in my repo
+@claude create a PR from feature/new-api to main with the recent changes
+@claude merge PR #123 after the checks pass
+```
+
+#### Issue Management
+```
+@claude create an issue about the performance problem in the API endpoint
+@claude close issue #45 as it's been resolved
+@claude add a comment to issue #12 with the workaround
+```
+
+#### Code Reviews
+```
+@claude review PR #89 and suggest improvements
+@claude add review comments to the authentication changes
+```
+
+### Smart URL Handling
+
+The bot handles various GitHub URL formats:
+```
+# HTTPS URLs
+@claude analyze https://github.com/facebook/react
+
+# With .git extension
+@claude check https://github.com/vercel/next.js.git
+
+# SSH format
+@claude review git@github.com:microsoft/vscode.git
+
+# Direct file links
+@claude explain https://github.com/nodejs/node/blob/main/lib/fs.js
+
+# Clone commands
+@claude what does this do: git clone https://github.com/rust-lang/rust.git
+```
+
+### Configuration
+
+The GitHub integration uses the official `github-mcp-server` with these toolsets:
+- `repos`: Repository and file operations
+- `code_security`: Security scanning capabilities
+- `issues`: Issue tracking and management
+- `context`: Repository context and metadata
+
+### Security Considerations
+
+- Only public repositories are accessible by default
+- Uses your configured GitHub Personal Access Token
+- Respects GitHub API rate limits
+- Read-only operations for safety
+
+### Best Practices
+
+1. **Be Specific**: Include the repository owner and name for accurate results
+2. **Use Natural Language**: Ask questions as you would to a colleague
+3. **Combine with Thread Context**: Reference previous discussions about code
+4. **Request Summaries**: Ask for high-level overviews before diving deep
+
+### Technical Implementation
+
+The bot:
+1. Detects repository patterns using regex matching
+2. Validates repository references to avoid false positives
+3. Adds repository context to the system prompt
+4. Enables GitHub MCP tools automatically
+5. Uses the enhanced `github-mcp-server` for advanced capabilities

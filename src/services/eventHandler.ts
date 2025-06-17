@@ -2,6 +2,7 @@ import { Env, SlackEventPayload } from '../types/env';
 import { SlackClient } from './slackClient';
 import { GitHubDispatcher } from './githubDispatcher';
 import { Logger } from '../utils/logger';
+import { GitHubUtils } from '../utils/githubUtils';
 
 export class EventHandler {
   private slackClient: SlackClient;
@@ -49,6 +50,10 @@ export class EventHandler {
       // Get thread context if this is a threaded message
       const context = thread_ts ? await this.slackClient.getThreadContext(channel, thread_ts) : [];
 
+      // Extract GitHub context for enhanced repository handling
+      const githubUsername = this.env.GITHUB_USERNAME || 'jerryzhao173985'; // Default to your username
+      const githubContext = GitHubUtils.extractGitHubContext(text, githubUsername);
+      
       // Extract tools and question (model already extracted above)
       const tools = this.extractMCPTools(text);
       const question = this.extractQuestion(text);
@@ -57,8 +62,15 @@ export class EventHandler {
       this.logger.info('Placeholder message created', {
         placeholderTs: placeholder.ts,
         channel: placeholder.channel,
-        threadTs: thread_ts || ts
+        threadTs: thread_ts || ts,
+        githubContext
       });
+
+      // Build system prompt with repository context if detected
+      let systemPrompt = this.githubDispatcher.buildSystemPrompt(context);
+      if (githubContext) {
+        systemPrompt += GitHubUtils.buildGitHubPrompt(githubContext);
+      }
 
       // Dispatch to GitHub Actions
       await this.githubDispatcher.dispatchWorkflow({
@@ -67,8 +79,9 @@ export class EventHandler {
         slack_channel: channel,
         slack_ts: placeholder.ts,
         slack_thread_ts: thread_ts || ts,
-        system_prompt: this.githubDispatcher.buildSystemPrompt(context),
+        system_prompt: systemPrompt,
         model,
+        repository_context: githubContext ? JSON.stringify(githubContext) : undefined,
       });
 
       const duration = Date.now() - startTime;
@@ -101,8 +114,11 @@ export class EventHandler {
     // Always include slack and notionApi for Q&A recording
     const defaultTools = ['slack', 'notionApi'];
 
-    // Conditionally add github if mentioned
-    if (text.toLowerCase().includes('github') || text.toLowerCase().includes('code')) {
+    // Conditionally add github if mentioned or repository pattern detected
+    if (text.toLowerCase().includes('github') || 
+        text.toLowerCase().includes('code') ||
+        text.toLowerCase().includes('analyze') ||
+        this.extractGitHubRepository(text)) {
       defaultTools.push('github');
     }
 
@@ -201,5 +217,45 @@ export class EventHandler {
       'claude-sonnet-4-20250514': 'Sonnet 4',
     };
     return displayNames[model] || model;
+  }
+
+  private extractGitHubRepository(text: string): string | null {
+    // Patterns to match GitHub repositories
+    const patterns = [
+      // Full GitHub URLs with optional .git extension
+      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/|$)/i,
+      // SSH URLs
+      /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/|$)/i,
+      // Git clone commands
+      /git\s+clone\s+(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?/i,
+      // Owner/repo format
+      /\b([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)\b/,
+      // With common prefixes
+      /\b(?:analyze|check|review|examine|inspect|fix|improve)\s+(?:my\s+)?(?:code\s+)?([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)/i,
+      // Repository references with "in" or "from"
+      /\b(?:in|from)\s+([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const owner = match[1];
+        let repo = match[2];
+        
+        // Remove .git extension if present
+        repo = repo.replace(/\.git$/, '');
+        
+        // Validate it looks like a real repository name
+        if (owner.length > 0 && repo.length > 0 && 
+            !owner.includes(' ') && !repo.includes(' ') &&
+            owner !== 'model' && owner !== 'with' && owner !== 'using') {
+          const repository = `${owner}/${repo}`;
+          this.logger.info('GitHub repository detected', { repository, pattern: pattern.source });
+          return repository;
+        }
+      }
+    }
+
+    return null;
   }
 }

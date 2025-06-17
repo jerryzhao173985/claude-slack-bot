@@ -15,6 +15,7 @@ preview_id = "26ffe07d64f344a8a2bb78df08de57fb"
 GITHUB_OWNER = "jerryzhao173985"
 GITHUB_REPO = "claude-slack-bot"
 GITHUB_WORKFLOW_FILE = "claude-code-processor.yml"
+GITHUB_USERNAME = "jerryzhao173985"
 
 # Secrets to be set with wrangler secret put:
 # SLACK_SIGNING_SECRET

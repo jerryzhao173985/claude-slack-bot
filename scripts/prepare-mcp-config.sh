@@ -24,9 +24,9 @@ cat > mcp-config.json <<EOF
     },
     "github": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "args": ["-y", "github-mcp-server", "--toolsets", "all"],
       "env": {
-        "GITHUB_TOKEN": "${GH_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GH_TOKEN}"
       }
     }
   }

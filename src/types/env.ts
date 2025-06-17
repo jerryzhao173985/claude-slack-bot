@@ -6,6 +6,7 @@ export interface Env {
   GITHUB_OWNER: string;
   GITHUB_REPO: string;
   GITHUB_WORKFLOW_FILE: string;
+  GITHUB_USERNAME?: string;
 }
 
 export interface SlackEventPayload {
@@ -46,4 +47,5 @@ export interface GitHubWorkflowInputs {
   slack_thread_ts: string;
   system_prompt: string;
   model?: string;
+  repository_context?: string;
 }

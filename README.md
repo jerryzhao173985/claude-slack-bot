@@ -37,6 +37,32 @@ Auto-selects the best Claude model for your task:
 @claude with model 4 write comprehensive docs
 ```
 
+### 🐙 GitHub Repository Analysis (ENHANCED!)
+Deep code analysis and repository management with natural language:
+
+**Read & Analyze (Any Repository)**:
+```slack
+@claude analyze https://github.com/anthropics/claude-code
+@claude find security issues in facebook/react
+@claude explain the architecture of kubernetes/kubernetes
+@claude what changed in nodejs/node recently?
+```
+
+**Write & Manage (Your Repositories)**:
+```slack
+@claude fix the typo in README.md in jerryzhao173985/my-project
+@claude create a PR to add error handling
+@claude open an issue about the performance problem
+@claude review and merge PR #123
+```
+
+Features:
+- 26+ GitHub tools for comprehensive operations
+- Smart permissions: Full access to your repos, read-only for others
+- Natural language understanding for complex tasks
+- Support for all GitHub URL formats (including .git)
+- File creation, branch management, PR operations, and more
+
 ### 📝 Automatic Notion Documentation
 Every Q&A session is automatically saved to Notion with:
 - Clean, searchable titles

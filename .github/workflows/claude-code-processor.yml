@@ -32,6 +32,10 @@ on:
         description: "Comma-separated list of MCP tools"
         required: false
         type: string
+      repository_context:
+        description: "JSON string with repository context information"
+        required: false
+        type: string
 
 jobs:
   process-request:
@@ -111,11 +115,25 @@ jobs:
               - thread_ts: "${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}"
               - text: Your response
             
-            ### 3. Thread Context
+            ### 3. GitHub Repository Analysis
+            - If user mentions a repository (e.g., owner/repo or github.com/owner/repo), use GitHub MCP tools
+            - Check the system prompt for repository context - it will tell you if you have read-only or full access
+            - Natural language commands to handle:
+              - "create a PR" → Use `mcp__github__create_pull_request`
+              - "fix the typo" → Use `mcp__github__create_or_update_file` then create PR
+              - "open an issue" → Use `mcp__github__create_issue`
+              - "review PR" → Use review tools
+              - "what changed" → Use `mcp__github__list_commits`
+              - "analyze code" → Use `mcp__github__search_code` and `mcp__github__get_file_contents`
+            - For owned repositories, you can perform write operations
+            - For other repositories, provide analysis and suggestions only
+            - Repository context is provided in: ${{ github.event.inputs.repository_context }}
+            
+            ### 4. Thread Context
             - If user mentions "this thread" or "above", check system prompt for context
             - If needed, use `mcp__slack__slack_get_thread_replies` to fetch history
             
-            ### 4. Fallback
+            ### 5. Fallback
             - If Slack reply fails, save response to: `outputs/slack_response.txt`
           
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -128,6 +146,31 @@ jobs:
             mcp__slack__slack_get_user_profile,
             mcp__notionApi__API-post-search,
             mcp__notionApi__API-post-page,
+            mcp__github__get_me,
+            mcp__github__get_issue,
+            mcp__github__get_issue_comments,
+            mcp__github__list_issues,
+            mcp__github__search_issues,
+            mcp__github__create_issue,
+            mcp__github__add_issue_comment,
+            mcp__github__update_issue,
+            mcp__github__get_pull_request,
+            mcp__github__list_pull_requests,
+            mcp__github__get_pull_request_files,
+            mcp__github__create_pull_request,
+            mcp__github__merge_pull_request,
+            mcp__github__update_pull_request_branch,
+            mcp__github__search_repositories,
+            mcp__github__get_file_contents,
+            mcp__github__list_commits,
+            mcp__github__search_code,
+            mcp__github__create_or_update_file,
+            mcp__github__push_files,
+            mcp__github__create_branch,
+            mcp__github__create_pending_pull_request_review,
+            mcp__github__add_pull_request_review_comment,
+            mcp__github__create_and_submit_pull_request_review,
+            mcp__github__request_copilot_review,
             Write,Read,Bash,WebSearch
           mcp_config: |
             {
@@ -149,9 +192,9 @@ jobs:
                 },
                 "github": {
                   "command": "npx",
-                  "args": ["-y", "@modelcontextprotocol/server-github"],
+                  "args": ["-y", "github-mcp-server", "--toolsets", "all"],
                   "env": { 
-                    "GITHUB_TOKEN": "${{ secrets.GH_TOKEN }}" 
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GH_TOKEN }}" 
                   }
                 }
               }

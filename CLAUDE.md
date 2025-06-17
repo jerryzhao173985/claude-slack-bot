@@ -66,3 +66,46 @@ The system should instruct Claude to:
 Currently using: `claude-3-7-sonnet-20250219`
 
 This model provides a good balance of capability and response time for Slack interactions.
+
+## GitHub Integration (Fully Enhanced)
+
+The bot now includes comprehensive GitHub capabilities with intelligent permission handling:
+
+### Features
+- **Natural Language Commands**: Full spectrum from analysis to repository management
+- **Smart Permissions**: Full access to your repos, read-only for others
+- **URL Pattern Support**: Handles .git URLs, SSH format, direct links
+- **26+ Tools**: Complete GitHub API coverage through MCP
+
+### Read Operations (Any Repository)
+```
+@claude analyze https://github.com/anthropics/claude-code
+@claude find security issues in facebook/react
+@claude explain https://github.com/nodejs/node/blob/main/lib/fs.js
+@claude what recent changes were made to kubernetes/kubernetes?
+```
+
+### Write Operations (Your Repositories)
+```
+@claude fix the typo in README.md in jerryzhao173985/my-project
+@claude create a branch feature/new-api
+@claude create a PR from feature/new-api to main
+@claude open an issue about the API performance
+@claude review and merge PR #123
+```
+
+### Configuration
+Using the official `github-mcp-server` with all toolsets enabled:
+- Complete repository management
+- File operations (read/write)
+- Issue and PR management
+- Code review capabilities
+- Security scanning
+
+### How It Works
+1. **Repository Detection**: Automatically detects various GitHub URL formats
+2. **Ownership Check**: Compares repository owner with configured username
+3. **Tool Selection**: Enables appropriate tools based on permissions
+4. **Context Building**: Provides rich context to Claude for better assistance
+
+The system intelligently determines access level and available operations based on repository ownership.
