@@ -6,6 +6,13 @@ export class GitHubDispatcher {
   async dispatchWorkflow(inputs: GitHubWorkflowInputs): Promise<void> {
     const url = `https://api.github.com/repos/${this.env.GITHUB_OWNER}/${this.env.GITHUB_REPO}/actions/workflows/${this.env.GITHUB_WORKFLOW_FILE}/dispatches`;
 
+    // Log the inputs for debugging
+    console.log('Dispatching workflow with inputs:', {
+      ...inputs,
+      system_prompt: inputs.system_prompt ? `[${inputs.system_prompt.length} chars]` : undefined,
+      max_turns: inputs.max_turns
+    });
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {

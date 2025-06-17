@@ -57,6 +57,14 @@ export class EventHandler {
       // Extract tools and question (model already extracted above)
       const tools = this.extractMCPTools(text);
       const question = this.extractQuestion(text);
+      
+      // Log extraction results for debugging
+      this.logger.info('Extracted components', {
+        originalText: text,
+        cleanedQuestion: question,
+        tools: tools,
+        hasGitHub: tools.includes('github')
+      });
 
       // Log placeholder details for debugging
       this.logger.info('Placeholder message created', {
@@ -75,6 +83,13 @@ export class EventHandler {
       // Calculate optimal turns based on task complexity
       const contextLength = context ? context.length : 0;
       const calculatedTurns = this.calculateTurns(question, tools, contextLength);
+      
+      // Log turn calculation for debugging
+      this.logger.info('Turn calculation result', {
+        calculatedTurns,
+        contextLength,
+        tools: tools.join(',')
+      });
 
       // Dispatch to GitHub Actions
       await this.githubDispatcher.dispatchWorkflow({
@@ -268,9 +283,18 @@ export class EventHandler {
     // Base allocation
     let turns = 15;
     
+    // Log input parameters
+    this.logger.info('calculateTurns input', {
+      textLength: text.length,
+      textPreview: text.substring(0, 100) + '...',
+      mcpTools,
+      threadLength
+    });
+    
     // MCP-based complexity (GitHub = 25 tools = more complexity)
     if (mcpTools.includes('github')) {
       turns += 10;
+      this.logger.info('Added 10 turns for GitHub tools');
     }
     
     // Task-specific adjustments (precise patterns)
@@ -284,12 +308,35 @@ export class EventHandler {
     };
     
     // Add turns for complexity markers
-    if (complexityMarkers.multiStep.test(text)) turns += 5;
-    if (complexityMarkers.refactoring.test(text)) turns += 10;
-    if (complexityMarkers.githubComplex.test(text)) turns += 10; // PR/issue creation needs multiple MCP calls
-    if (complexityMarkers.majorWork.test(text)) turns += 10;
-    if (complexityMarkers.debugging.test(text)) turns += 5;
-    if (complexityMarkers.comprehensiveAnalysis.test(text)) turns += 5;
+    const markerResults: string[] = [];
+    if (complexityMarkers.multiStep.test(text)) {
+      turns += 5;
+      markerResults.push('multiStep');
+    }
+    if (complexityMarkers.refactoring.test(text)) {
+      turns += 10;
+      markerResults.push('refactoring');
+    }
+    if (complexityMarkers.githubComplex.test(text)) {
+      turns += 10; // PR/issue creation needs multiple MCP calls
+      markerResults.push('githubComplex');
+      const match = text.match(complexityMarkers.githubComplex);
+      this.logger.info('githubComplex pattern matched', { match: match?.[0] });
+    }
+    if (complexityMarkers.majorWork.test(text)) {
+      turns += 10;
+      markerResults.push('majorWork');
+    }
+    if (complexityMarkers.debugging.test(text)) {
+      turns += 5;
+      markerResults.push('debugging');
+    }
+    if (complexityMarkers.comprehensiveAnalysis.test(text)) {
+      turns += 5;
+      markerResults.push('comprehensiveAnalysis');
+    }
+    
+    this.logger.info('Complexity markers matched', { markerResults, turnsAfterMarkers: turns });
     
     // Thread context (conversations build complexity)
     if (threadLength > 5) turns += 5;
