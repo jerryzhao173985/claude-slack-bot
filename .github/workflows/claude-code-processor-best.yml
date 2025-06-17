@@ -108,25 +108,37 @@ jobs:
             - Use any necessary MCP tools to gather information
             - For GitHub repositories, check the repository context for access level
             - Repository context is provided in: ${{ github.event.inputs.repository_context }}
+            - When creating branches, use unique names with timestamps: feature/[description]-[timestamp]
+            - If branch creation fails due to "already exists", use a different name or timestamp
+            - IMPORTANT: Save progress to file BEFORE attempting complex GitHub operations
             
             ### 2. Save to Notion (Optional)
             - If Notion MCP is available, try to save Q&A to Notion
             - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
             - If found, create a sub-page with the conversation
             
-            ### 3. Save Response to File (REQUIRED)
-            - After completing your analysis and generating your response
-            - Save your COMPLETE response to: `outputs/slack_response.txt`
+            ### 3. CRITICAL: Check Thread Context First
+            - If the message is short like "solve this", "do it", "continue", check the system prompt for thread context
+            - The thread history shows what task was previously discussed
+            - Complete the task mentioned in the thread without asking for clarification
+            - Example: If thread mentions "create a PR", then "solve this" means create that PR
+            
+            ### 4. Save Response to File (REQUIRED)
+            - IMPORTANT: You MUST save a response before running out of turns
+            - Monitor your progress - if approaching turn limit, wrap up and save
+            - Save your response to: `outputs/slack_response.txt`
             - Use the Write tool to save the file
             - Format your response appropriately for Slack (use markdown where helpful)
             - Do NOT include any metadata or instructions in the response
             - Just save the clean response text that should be shown to the user
+            - If you couldn't complete everything, explain what you did and what remains
             
             ### Important Notes
             - The Slack MCP server cannot update messages, only post new ones
             - By saving to the file, the workflow can update the placeholder message
             - This provides a cleaner experience than posting a new reply
-            - Make sure to save the COMPLETE response, not a summary
+            - Make sure to save the response BEFORE attempting complex operations
+            - If running low on turns, prioritize saving a partial response over completing everything
           
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: ${{ github.event.inputs.model }}

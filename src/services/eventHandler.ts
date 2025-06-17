@@ -321,7 +321,7 @@ export class EventHandler {
     const complexityMarkers = {
       multiStep: /\b(first|then|after|finally|step \d+)\b/i,
       refactoring: /\brefactor(ing)?\s+(the\s+)?(entire\s+)?(system|codebase|architecture|api|backend|frontend)/i,
-      githubComplex: /\b(create|open|submit|merge)\s*(a\s+|an\s+)?(pr|pull request|issue)|push.*(to\s+)?branch|commit.*changes/i,
+      githubComplex: /\b(create|open|submit|merge|raise)\s*(a\s+|an\s+)?(pr|pull request|issue)|push.*(to\s+)?branch|commit.*changes/i,
       majorWork: /\b(implement|build|develop)\s+(new\s+)?(feature|system|api|service|integration)|migrate\s+to|redesign|architect/i,
       debugging: /\b(debug|fix|resolve)\s+(the\s+)?(bug|issue|error|problem|crash)/i,
       comprehensiveAnalysis: /\banalyze\s+(the\s+)?(entire|whole|complete|all)\s+(codebase|system|project)/i,
@@ -405,4 +405,5 @@ export class EventHandler {
     
     return finalTurns;
   }
+
 }
