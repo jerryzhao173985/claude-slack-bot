@@ -68,12 +68,14 @@ for pattern in "${test_patterns[@]}"; do
 done
 echo ""
 
-# Check if github-mcp-server is available
-echo "4. Checking GitHub MCP server availability..."
-if npx -y github-mcp-server --help >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ github-mcp-server is available${NC}"
+# Check if github-mcp-server binary would be available
+echo "4. Checking GitHub MCP server setup..."
+echo "   Note: github-mcp-server is a binary, not an npm package"
+echo "   The workflow will download it from GitHub releases"
+if [ -f ".github/workflows/claude-code-processor.yml" ] && grep -q "Install GitHub MCP Server" .github/workflows/claude-code-processor.yml; then
+    echo -e "${GREEN}✅ Workflow includes binary installation step${NC}"
 else
-    echo -e "${YELLOW}⚠️  github-mcp-server not found, will be installed on first use${NC}"
+    echo -e "${RED}❌ Binary installation step missing from workflow${NC}"
 fi
 echo ""
 

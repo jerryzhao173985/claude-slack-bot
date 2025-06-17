@@ -11,7 +11,12 @@ The GitHub MCP server failed to initialize during GitHub Actions workflow execut
 
 ## Root Cause
 
-The GitHub MCP server requires the `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable to authenticate with GitHub API. While this was correctly set in the MCP configuration, the Claude Code action itself also needs access to `GH_TOKEN` for its internal gh CLI fallback mechanism. When the MCP server fails to connect, Claude attempts to use gh CLI, which requires the GH_TOKEN to be available in the action's environment.
+The GitHub MCP server failed to connect because `github-mcp-server` is not available as an npm package. The official GitHub MCP server from https://github.com/github/github-mcp-server is distributed as:
+1. A Docker image (`ghcr.io/github/github-mcp-server`)
+2. Pre-built binaries for various platforms
+3. Source code that can be compiled with Go
+
+The `npx -y github-mcp-server` command was trying to find an npm package that doesn't exist, causing the connection failure. The `@modelcontextprotocol/server-github` npm package exists but has been deprecated in favor of GitHub's official implementation.
 
 ## Technical Details
 
@@ -63,21 +68,42 @@ The MCP configuration already had the correct token:
 
 ## Resolution
 
-Added the `GH_TOKEN` environment variable to the Claude processing step in the workflow:
+Implemented a two-part solution:
 
+1. **Download the pre-built binary** in the workflow:
+```yaml
+- name: Install GitHub MCP Server
+  run: |
+    echo "Downloading github-mcp-server binary..."
+    curl -L https://github.com/github/github-mcp-server/releases/download/v0.5.0/github-mcp-server_Linux_x86_64.tar.gz | tar xz -C ~/.local/bin
+    chmod +x ~/.local/bin/github-mcp-server
+    echo "$HOME/.local/bin" >> $GITHUB_PATH
+```
+
+2. **Update MCP configuration** to use the binary with stdio:
+```json
+"github": {
+  "command": "github-mcp-server",
+  "args": ["stdio", "--toolsets", "all"],
+  "env": { 
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GH_TOKEN }}" 
+  }
+}
+```
+**Important**: The `stdio` argument is required for MCP communication.
+
+3. **Added GH_TOKEN environment variable** for gh CLI fallback:
 ```yaml
 - name: Process with Claude
   uses: anthropics/claude-code-base-action@beta
   env:
     GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  with:
-    # ... rest of configuration
 ```
 
-This fix ensures:
-1. The gh CLI has authentication when used as a fallback
-2. Any internal GitHub operations in the Claude Code action have proper credentials
-3. Both the MCP server and fallback mechanisms can authenticate properly
+This ensures:
+1. The official GitHub MCP server binary is available in the PATH
+2. The MCP configuration correctly invokes the binary
+3. The gh CLI has authentication for fallback scenarios
 
 ## Prevention
 
@@ -109,11 +135,11 @@ After the fix:
 
 ## Lessons Learned
 
-1. **Multiple Authentication Layers**: Modern tools often require authentication at multiple levels - don't assume one configuration covers all cases
-2. **Fallback Testing**: Always test both primary and fallback mechanisms
-3. **Environment Variable Scope**: GitHub Actions environment variables need to be explicitly passed to each step that needs them
-4. **MCP Server Debugging**: When an MCP server fails, check both its specific requirements and any fallback mechanisms Claude might use
-5. **Action Documentation**: The Claude Code action's internal use of gh CLI wasn't immediately obvious from documentation
+1. **Package Distribution Methods**: Not all MCP servers are distributed as npm packages - some use Docker images or binaries
+2. **Check Official Sources**: Always verify the official distribution method from the source repository
+3. **Deprecation Awareness**: The `@modelcontextprotocol/server-github` npm package was deprecated in favor of GitHub's official implementation
+4. **Binary Installation**: Pre-built binaries can be downloaded and used in GitHub Actions workflows
+5. **Multiple Authentication Layers**: Ensure both the MCP server and fallback tools (gh CLI) have proper authentication
 
 ## Related Issues
 
@@ -125,7 +151,10 @@ After the fix:
 For proper GitHub integration, ensure:
 
 - [ ] `GH_TOKEN` secret is set in GitHub repository settings
-- [ ] MCP config includes `GITHUB_PERSONAL_ACCESS_TOKEN`
-- [ ] Claude action step includes `env: { GH_TOKEN: ${{ secrets.GH_TOKEN }} }`
+- [ ] GitHub MCP server binary is downloaded and installed in the workflow
+- [ ] MCP config uses `github-mcp-server` command (not npx)
+- [ ] MCP config includes `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable
+- [ ] Claude action step includes `env: { GH_TOKEN: ${{ secrets.GH_TOKEN }} }` for gh CLI fallback
 - [ ] Token has appropriate scopes for all operations
 - [ ] Workflow has all GitHub tools in allowed_tools list
+- [ ] The `--toolsets all` argument is included for full functionality

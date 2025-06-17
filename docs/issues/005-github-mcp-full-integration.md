@@ -85,13 +85,18 @@ Support for intuitive commands:
 ### MCP Server Configuration
 ```json
 "github": {
-  "command": "npx",
-  "args": ["-y", "github-mcp-server", "--toolsets", "all"],
+  "command": "github-mcp-server",
+  "args": ["stdio", "--toolsets", "all"],
   "env": {
     "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GH_TOKEN }}"
   }
 }
 ```
+
+**Note**: The official github-mcp-server requires:
+1. Binary installation (not available via npm)
+2. The `stdio` argument for MCP communication
+3. See Issue #006 for installation details
 
 ## Usage Examples
 

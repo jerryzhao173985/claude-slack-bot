@@ -95,12 +95,12 @@ The bot now includes comprehensive GitHub capabilities with intelligent permissi
 ```
 
 ### Configuration
-Using the official `github-mcp-server` with all toolsets enabled:
-- Complete repository management
-- File operations (read/write)
-- Issue and PR management
-- Code review capabilities
-- Security scanning
+Using the official `github-mcp-server` from GitHub (https://github.com/github/github-mcp-server):
+- Distributed as binary (not npm package)
+- Requires `stdio` argument for MCP communication
+- Uses `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable
+- Supports all toolsets for complete GitHub API access
+- Provides repository management, file operations, PR/issue handling, and more
 
 ### How It Works
 1. **Repository Detection**: Automatically detects various GitHub URL formats
