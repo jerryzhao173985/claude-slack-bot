@@ -1,6 +1,11 @@
-# Claude Slack Bot
+# 🤖 Claude Slack Bot
 
-A powerful Slack bot powered by Claude with MCP (Model Context Protocol) integration. Features automatic Notion archiving, thread context awareness, and seamless model selection.
+A powerful Slack bot powered by Claude with MCP (Model Context Protocol) integration. Features automatic Notion archiving, thread context awareness, thinking mode visualization, and seamless multi-model selection.
+
+[![GitHub Actions](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=github-actions)](https://github.com/jerryzhao173985/claude-slack-bot/actions)
+[![Cloudflare Workers](https://img.shields.io/badge/Edge-Cloudflare_Workers-F38020?logo=cloudflare)](https://workers.cloudflare.com/)
+[![Claude](https://img.shields.io/badge/AI-Claude_Sonnet-7C3AED?logo=anthropic)](https://www.anthropic.com/claude)
+[![MCP](https://img.shields.io/badge/Protocol-MCP-22C55E)](https://modelcontextprotocol.io/)
 
 ## 🚀 Quick Start
 
@@ -16,24 +21,68 @@ A powerful Slack bot powered by Claude with MCP (Model Context Protocol) integra
 4. **Configure Slack App**
 5. **Start using**: `@claude hello!`
 
-> 📖 See [Quick Start Guide](docs/quick-start.md) for detailed setup instructions.
+> 📖 For complete setup, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
 ## ✨ Key Features
 
-- **🧠 Smart Model Selection**: Auto-selects best model for your task
-- **📝 Notion Integration**: Every Q&A automatically saved
-- **🧵 Thread Context**: Full conversation awareness
-- **💭 Thinking Mode**: Visual indicator for deep reasoning
-- **🔧 MCP Tools**: Slack, Notion, GitHub integrations
+### 🧠 Smart Model Selection
+Auto-selects the best Claude model for your task:
+- **Sonnet 4** (🧠): Complex analysis, deep thinking
+- **Sonnet 3.7** (🧠): Latest features, balanced performance  
+- **Sonnet 3.5**: Fast responses, simple tasks
 
-## 📚 Documentation
+```slack
+@claude /model advanced analyze this architecture
+@claude using sonnet-3.5 quick calculation
+@claude with model 4 write comprehensive docs
+```
 
-- [Quick Start Guide](docs/quick-start.md) - Get running in 10 minutes
-- [Deployment Guide](docs/deployment.md) - Complete deployment walkthrough
+### 📝 Automatic Notion Documentation
+Every Q&A session is automatically saved to Notion with:
+- Clean, searchable titles
+- Full question and answer content
+- Metadata (timestamp, channel, model used)
+- Organized under "Claude Code" folder
+
+### 🧵 Thread Context Awareness
+The bot reads up to 50 previous messages in a thread:
+```slack
+User: First message about project X
+User: Here are the requirements...
+User: @claude summarize this thread
+Claude: Based on the discussion above about project X...
+```
+
+### 💭 Thinking Mode Visualization
+Visual indicators show when advanced models are thinking:
+- Sonnet 4: "Working on your request (using Sonnet 4 🧠)..."
+- Sonnet 3.7: "Working on your request (using Sonnet 3.7 🧠)..."
+- Sonnet 3.5: "Working on your request (using Sonnet 3.5)..."
+
+### 🔧 MCP Tool Integration
+Three official MCP servers provide seamless integrations:
+- **Slack**: Reply to threads, get user info, channel history
+- **Notion**: Search and create pages, manage content
+- **GitHub**: Access repos, create issues, manage PRs
+
+## 📚 Complete Documentation
+
+### Core Guides
+- [**PROJECT_DOCUMENTATION.md**](PROJECT_DOCUMENTATION.md) - Complete technical documentation
+- [**DEPLOYMENT_GUIDE.md**](DEPLOYMENT_GUIDE.md) - Step-by-step deployment instructions
+- [**TROUBLESHOOTING_GUIDE.md**](TROUBLESHOOTING_GUIDE.md) - Comprehensive troubleshooting
+
+### Feature Documentation
 - [Features Guide](docs/features.md) - All features explained
 - [Notion Integration](docs/notion-integration.md) - Set up Q&A archiving
 - [Architecture Guide](docs/architecture.md) - Technical deep dive
-- [Troubleshooting Guide](docs/troubleshooting.md) - Common issues & solutions
+
+### Critical Issues & Fixes
+- [Critical Issues and Fixes](docs/critical-issues-and-fixes.md) - Major bugs encountered and solved
+- [Bug Fixes Consolidated](docs/bug-fixes-consolidated.md) - All fixes in one place
+
+### Additional Resources
+- [Quick Start Guide](docs/quick-start.md) - Get running in 10 minutes
 - [Maintenance Guide](docs/maintenance.md) - Keep your bot healthy
 - [Fallback Options](docs/fallback-options.md) - Simpler alternatives if MCP fails
 
@@ -44,27 +93,26 @@ A powerful Slack bot powered by Claude with MCP (Model Context Protocol) integra
 │    Slack    │────▶│ Cloudflare      │────▶│   GitHub     │
 │   Events    │     │   Worker        │     │   Actions    │
 └─────────────┘     └─────────────────┘     └──────────────┘
-                           │                        │
-                           ▼                        ▼
-                    ┌─────────────┐         ┌──────────────┐
-                    │  Immediate  │         │ Claude Code  │
-                    │  Response   │         │   + MCP      │
-                    └─────────────┘         └──────────────┘
+       ↓                    ↓                        ↓
+   @mentions          Immediate              Claude Code + MCP
+                      Response               (Slack, Notion, GitHub)
 ```
 
-- **Edge Component**: Cloudflare Worker (Hono framework) handles Slack events in <3s
-- **Runner Component**: GitHub Actions workflow executes Claude Code with MCP servers
-- **MCP Servers**: Official integrations for Slack, Notion, and GitHub
+### Why This Architecture?
+- **Cloudflare Workers**: <3s response time, global edge deployment
+- **GitHub Actions**: Long-running Claude sessions, free tier
+- **MCP Servers**: Official integrations, no custom code needed
 
-## Prerequisites
+## 🔧 Prerequisites
 
 - Node.js 18+
 - Cloudflare account with Workers enabled
 - GitHub repository with Actions enabled
 - Slack workspace with app creation permissions
 - Claude API key from Anthropic
+- Notion account (optional, for Q&A archiving)
 
-## Setup Instructions
+## 💻 Setup Instructions
 
 ### 1. Clone the Repository
 
@@ -139,6 +187,8 @@ Note the deployed URL (e.g., `https://claude-slack-bot.youraccount.workers.dev`)
      - `chat:write` - To post messages
      - `users:read` - To resolve user names
      - `chat:write.public` - To post in public channels (optional)
+     - `channels:history` - Read channel history (for thread context)
+     - `groups:history` - Read private channel history
    - Install to Workspace
    - Copy the **Bot User OAuth Token** (starts with `xoxb-`)
 
@@ -161,56 +211,47 @@ Invite your bot to Slack channels where you want to use it:
 /invite @your-bot-name
 ```
 
-## 💬 Usage
+## 💬 Usage Examples
 
-Mention the bot in any channel:
-```
-@claude summarize this thread
-@claude help me with notion integration
-@claude check my github pull requests
+### Basic Usage
+```slack
+@claude hello world
+@claude explain quantum computing
+@claude help me debug this code
 ```
 
 ### Model Selection
 
-You can specify which Claude model to use with multiple patterns:
-
-#### Slash Commands (NEW!)
-```
+#### Slash Commands
+```slack
 @claude /model advanced analyze this complex dataset
 @claude /model fast what's the weather?
 @claude /mode smart write a comprehensive report
 ```
 
-#### Named Presets (NEW!)
+#### Named Presets
 - `advanced` / `smart` / `deep` → Claude Sonnet 4 (Most capable)
 - `fast` / `balanced` / `quick` → Claude 3.5 Sonnet (Default)
 - `latest` / `newest` → Claude 3.7 Sonnet (Latest release)
 
 #### Natural Language
-```
+```slack
 @claude using sonnet-3.5 analyze this code
 @claude with advanced model create a business plan
 @claude model: 4 help me debug this issue
 ```
 
-#### Available Models
-- `claude-3-7-sonnet-20250219` (aliases: `sonnet-3.7`, `3.7`, `latest`)
-- `claude-3-5-sonnet-20241022` (aliases: `sonnet-3.5`, `3.5`, `fast`) - default
-- `claude-sonnet-4-20250514` (aliases: `sonnet-4`, `opus-4`, `4`, `advanced`)
-
-#### Auto-Selection
-The bot automatically uses the advanced model when detecting complex requests:
-```
-@claude write a comprehensive analysis of our data
-@claude create a detailed technical specification
+### Thread Context
+```slack
+@claude summarize this thread
+@claude based on the discussion above, create an action plan
 ```
 
-If no model is specified, the bot will use Claude 3.5 Sonnet by default.
-
-The bot will:
-1. Immediately respond with "🤔 Working on your request..."
+### The Bot Will:
+1. Immediately respond with "🤔 Working on your request (using [Model] 🧠)..."
 2. Process your request using the specified Claude model with MCP tools
-3. Update the message with the final response
+3. Save Q&A to Notion (if configured)
+4. Update the message with the final response
 
 ## 🛠️ Development
 
@@ -229,93 +270,70 @@ npm run build
 npm test
 ```
 
-### Linting
+### Linting & Type Checking
 ```bash
 npm run lint
 npm run typecheck
 ```
 
-### Verification
+### Verification & Debugging
 ```bash
-./verify-deployment.sh  # Check deployment readiness
-```
+# Verify deployment configuration
+./verify-deployment.sh
 
-## MCP Tools Available
+# Test bot health
+./test-bot.sh
 
-- **Slack**: Read/write messages, manage channels
-- **Notion**: Access and modify Notion pages (Q&A automatically saved)
-- **GitHub**: Interact with repositories, issues, PRs
-- **Claude Code Tools**: File operations, web search, and more
-
-### Notion Integration
-
-Every question and response is automatically saved to your Notion workspace:
-- Creates pages under a "Claude Code" folder
-- Each Q&A session becomes a separate page
-- Includes metadata: timestamp, channel, model used
-- Fully searchable history of all interactions
-
-## Extending the Bot
-
-### Adding New MCP Servers
-
-1. Edit `scripts/prepare-mcp-config.sh`
-2. Add the new server configuration
-3. Update GitHub secrets if needed
-4. Redeploy
-
-### Customizing Bot Behavior
-
-- Modify `src/services/eventHandler.ts` to change tool selection logic
-- Update `src/services/githubDispatcher.ts` to customize system prompts
-- Edit workflow in `.github/workflows/claude-code-processor.yml`
-
-## Troubleshooting
-
-For comprehensive troubleshooting, see our [Troubleshooting Guide](docs/troubleshooting.md).
-
-### Quick Fixes
-
-1. **Bot not responding**: Check if bot is invited to channel with `/invite @claude`
-2. **"Working..." never updates**: Verify GitHub Actions are running
-3. **Permission errors**: Ensure bot has `chat:write` scope in Slack app settings
-4. **Notion not saving**: Create and share "Claude Code" page with integration
-
-### Test Scripts
-
-```bash
 # Quick configuration fix
 ./quick-fix.sh
 
-# Test bot setup
-./test-bot.sh
-
-# Verify deployment
-./verify-deployment.sh
+# Comprehensive troubleshooting
+./troubleshoot-dispatch.sh
 ```
 
-### Debug Commands
+## 🐛 Critical Issues Fixed
 
+### The `mcp_tools` Parameter Bug
+During development, a critical bug was discovered where the `mcp_tools` parameter was accidentally removed during refactoring, causing complete bot failure. This has been fixed and documented in detail.
+
+**Key Lesson**: Always ensure workflow input parameters match what the Worker dispatches.
+
+See [Critical Issues and Fixes](docs/critical-issues-and-fixes.md) for the complete story.
+
+## 🔍 Troubleshooting
+
+### Quick Diagnostics
 ```bash
-# View Worker logs
+# Check Worker deployment
+wrangler deployments list
+
+# Verify secrets are set
+wrangler secret list
+
+# Monitor real-time logs
 wrangler tail
 
-# Test locally
-npm run dev
-
-# Check TypeScript errors
-npm run typecheck
-
-# Monitor GitHub Actions
-# Go to: github.com/yourusername/repo/actions
-
-# Test Slack signature locally
-curl -X POST http://localhost:8787/slack/events \
-  -H "Content-Type: application/json" \
-  -H "X-Slack-Signature: v0=..." \
-  -H "X-Slack-Request-Timestamp: ..." \
-  -d '{"event": {...}}'
+# Test workflow dispatch
+curl https://your-worker.workers.dev/debug/test-dispatch
 ```
+
+### Common Issues & Quick Fixes
+
+| Issue | Quick Fix |
+|-------|-----------|
+| Bot not responding | Check if bot is invited with `/invite @claude` |
+| "Working..." never updates | Verify GitHub Actions running, check `mcp_tools` parameter |
+| Notion pages empty | Ensure content is in `children` array during creation |
+| Permission errors | Add `CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=true` |
+| Wrong model used | Check exact command format and aliases |
+
+For comprehensive troubleshooting, see [TROUBLESHOOTING_GUIDE.md](TROUBLESHOOTING_GUIDE.md).
+
+### Debug Endpoints
+
+The Worker includes debug endpoints for testing:
+- `/debug/config` - Check current configuration
+- `/debug/test-dispatch` - Test GitHub workflow dispatch
 
 ### Monitoring
 
@@ -332,10 +350,23 @@ curl -X POST http://localhost:8787/slack/events \
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+Please ensure:
+- All tests pass
+- Code follows existing patterns
+- Documentation is updated
+- Workflow parameters are preserved
+
 ## 📄 License
 
 MIT
 
+## 🙏 Acknowledgments
+
+- Built with [Claude Code SDK](https://docs.anthropic.com/en/docs/claude-code)
+- Powered by [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
+- Edge computing by [Cloudflare Workers](https://workers.cloudflare.com/)
+- CI/CD by [GitHub Actions](https://github.com/features/actions)
+
 ---
 
-Built with ❤️ using Claude Code SDK
+Built with ❤️ using Claude Code SDK | [Report Issues](https://github.com/jerryzhao173985/claude-slack-bot/issues)
