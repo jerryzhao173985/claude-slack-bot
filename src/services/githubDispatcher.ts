@@ -31,6 +31,25 @@ export class GitHubDispatcher {
 
     if (!response.ok) {
       const error = await response.text();
+      console.error('GitHub API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: error,
+        url: url,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      // Provide more specific error messages
+      if (response.status === 404) {
+        throw new Error(`GitHub workflow not found: ${this.env.GITHUB_WORKFLOW_FILE}. Check if the file exists and the name matches exactly.`);
+      } else if (response.status === 401) {
+        throw new Error('GitHub authentication failed. Check if GITHUB_TOKEN is set in Cloudflare Worker secrets.');
+      } else if (response.status === 403) {
+        throw new Error('GitHub permission denied. Ensure your token has "repo" and "workflow" scopes.');
+      } else if (response.status === 422) {
+        throw new Error(`Invalid workflow inputs: ${error}`);
+      }
+      
       throw new Error(`GitHub API error: ${response.status} - ${error}`);
     }
   }

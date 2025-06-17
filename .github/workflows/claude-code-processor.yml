@@ -28,6 +28,10 @@ on:
         required: false
         type: string
         default: "claude-sonnet-4-20250514"
+      mcp_tools:
+        description: "Comma-separated list of MCP tools"
+        required: false
+        type: string
 
 jobs:
   process-request:

@@ -7,6 +7,7 @@ import { Env } from './types/env';
 import { slackRoutes } from './routes/slack';
 import { healthRoutes } from './routes/health';
 import { docsRoutes } from './routes/docs';
+import { debugRoutes } from './routes/debug';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -24,6 +25,7 @@ app.use(
 app.route('/', slackRoutes);
 app.route('/', healthRoutes);
 app.route('/', docsRoutes);
+app.route('/', debugRoutes);
 
 app.onError((err, c) => {
   console.error('Application error:', err);

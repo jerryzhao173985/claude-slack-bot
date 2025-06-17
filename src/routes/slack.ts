@@ -41,7 +41,17 @@ app.post(
       // Process asynchronously
       c.executionCtx.waitUntil(
         eventHandler.handleAppMention(payload).catch((error) => {
-          console.error('Error handling app mention:', error);
+          console.error('Error handling app mention:', {
+            error: error.message,
+            stack: error.stack,
+            payload: JSON.stringify(payload),
+            env: {
+              hasGithubToken: !!c.env.GITHUB_TOKEN,
+              githubOwner: c.env.GITHUB_OWNER,
+              githubRepo: c.env.GITHUB_REPO,
+              githubWorkflow: c.env.GITHUB_WORKFLOW_FILE
+            }
+          });
         })
       );
       
