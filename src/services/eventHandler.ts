@@ -8,8 +8,10 @@ export class EventHandler {
   private slackClient: SlackClient;
   private githubDispatcher: GitHubDispatcher;
   private logger: Logger;
+  private env: Env;
 
   constructor(env: Env, slackBotToken: string) {
+    this.env = env;
     this.slackClient = new SlackClient(env, slackBotToken);
     this.githubDispatcher = new GitHubDispatcher(env);
     this.logger = new Logger('EventHandler');
