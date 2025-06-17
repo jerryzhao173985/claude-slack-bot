@@ -11,6 +11,7 @@ This directory contains detailed documentation of all significant issues encount
 | [003](003-mcp-permission-errors.md) | MCP Permission Errors in CI | High | Resolved | Tools blocked in workflows |
 | [004](004-workflow-rename-deployment.md) | Workflow Rename Without Redeploy | High | Resolved | Bot stopped responding |
 | [005](005-github-mcp-full-integration.md) | GitHub MCP Full Integration | Enhancement | Implemented | 26+ GitHub tools with smart permissions |
+| [006](006-github-mcp-connection-failure.md) | GitHub MCP Server Connection Failure | Critical | Resolved | GitHub tools unavailable |
 
 ## Common Patterns
 
@@ -22,7 +23,7 @@ This directory contains detailed documentation of all significant issues encount
 ### 2. CI/CD Environment Differences
 - **Pattern**: Features work locally but fail in GitHub Actions
 - **Solution**: Test in CI environment, use CI-specific configs
-- **Examples**: Issues #002, #003
+- **Examples**: Issues #002, #003, #006
 
 ### 3. API Contract Mismatches
 - **Pattern**: Client sends data server doesn't expect
@@ -33,6 +34,11 @@ This directory contains detailed documentation of all significant issues encount
 - **Pattern**: Second step of multi-step process fails silently
 - **Solution**: Use atomic operations when possible
 - **Examples**: Issue #002
+
+### 5. Authentication Scope Issues
+- **Pattern**: Tools authenticate at config level but fail at runtime
+- **Solution**: Ensure authentication at all required levels
+- **Examples**: Issue #006
 
 ## Prevention Strategies
 
@@ -63,7 +69,7 @@ This directory contains detailed documentation of all significant issues encount
 
 When documenting new issues:
 
-1. Use the next sequential ID (005, 006, etc.)
+1. Use the next sequential ID (007, 008, etc.)
 2. Follow the template structure
 3. Include concrete examples
 4. Document both problem and solution
