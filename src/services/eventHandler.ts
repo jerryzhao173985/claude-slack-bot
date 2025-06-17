@@ -72,6 +72,10 @@ export class EventHandler {
         systemPrompt += GitHubUtils.buildGitHubPrompt(githubContext);
       }
 
+      // Calculate optimal turns based on task complexity
+      const contextLength = context ? context.length : 0;
+      const calculatedTurns = this.calculateTurns(question, tools, contextLength);
+
       // Dispatch to GitHub Actions
       await this.githubDispatcher.dispatchWorkflow({
         question,
@@ -82,6 +86,7 @@ export class EventHandler {
         system_prompt: systemPrompt,
         model,
         repository_context: githubContext ? JSON.stringify(githubContext) : undefined,
+        max_turns: calculatedTurns.toString()
       });
 
       const duration = Date.now() - startTime;
@@ -257,5 +262,53 @@ export class EventHandler {
     }
 
     return null;
+  }
+
+  private calculateTurns(text: string, mcpTools: string[], threadLength: number): number {
+    // Base allocation
+    let turns = 15;
+    
+    // MCP-based complexity (GitHub = 25 tools = more complexity)
+    if (mcpTools.includes('github')) {
+      turns += 10;
+    }
+    
+    // Task-specific adjustments (precise patterns)
+    const complexityMarkers = {
+      multiStep: /\b(first|then|after|finally|step \d+)\b/i,
+      refactoring: /\brefactor(ing)?\s+(the\s+)?(entire\s+)?(system|codebase|architecture|api|backend|frontend)/i,
+      githubComplex: /\b(create|open|submit|merge)\s*(a\s+|an\s+)?(pr|pull request|issue)|push.*(to\s+)?branch|commit.*changes/i,
+      majorWork: /\b(implement|build|develop)\s+(new\s+)?(feature|system|api|service|integration)|migrate\s+to|redesign|architect/i,
+      debugging: /\b(debug|fix|resolve)\s+(the\s+)?(bug|issue|error|problem|crash)/i,
+      comprehensiveAnalysis: /\banalyze\s+(the\s+)?(entire|whole|complete|all)\s+(codebase|system|project)/i
+    };
+    
+    // Add turns for complexity markers
+    if (complexityMarkers.multiStep.test(text)) turns += 5;
+    if (complexityMarkers.refactoring.test(text)) turns += 10;
+    if (complexityMarkers.githubComplex.test(text)) turns += 10; // PR/issue creation needs multiple MCP calls
+    if (complexityMarkers.majorWork.test(text)) turns += 10;
+    if (complexityMarkers.debugging.test(text)) turns += 5;
+    if (complexityMarkers.comprehensiveAnalysis.test(text)) turns += 5;
+    
+    // Thread context (conversations build complexity)
+    if (threadLength > 5) turns += 5;
+    if (threadLength > 15) turns += 5; // +10 total for long threads
+    
+    // Cap at reasonable maximum
+    const finalTurns = Math.min(turns, 50);
+    
+    // Log turn calculation for monitoring
+    this.logger.info('Turn allocation calculated', {
+      base: 15,
+      calculated: finalTurns,
+      hasGitHub: mcpTools.includes('github'),
+      threadLength: threadLength,
+      patternsMatched: Object.entries(complexityMarkers)
+        .filter(([_, pattern]) => pattern.test(text))
+        .map(([name]) => name)
+    });
+    
+    return finalTurns;
   }
 }

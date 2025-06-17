@@ -48,4 +48,5 @@ export interface GitHubWorkflowInputs {
   system_prompt: string;
   model?: string;
   repository_context?: string;
+  max_turns?: string;
 }

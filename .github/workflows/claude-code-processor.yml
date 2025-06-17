@@ -36,6 +36,11 @@ on:
         description: "JSON string with repository context information"
         required: false
         type: string
+      max_turns:
+        description: "Maximum conversation turns (dynamically calculated)"
+        required: false
+        type: string
+        default: "15"
 
 jobs:
   process-request:
@@ -211,8 +216,15 @@ jobs:
                 }
               }
             }
-          max_turns: 15
+          max_turns: ${{ github.event.inputs.max_turns || '15' }}
           claude_env: ${{ steps.claude-config.outputs.claude_env }}
+      
+      - name: Log turn allocation
+        if: always()
+        run: |
+          echo "=== Turn Allocation ==="
+          echo "Max Turns: ${{ github.event.inputs.max_turns || '15' }}"
+          echo "======================="
       
       - name: Fallback Slack update
         if: always()

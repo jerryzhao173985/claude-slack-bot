@@ -91,6 +91,16 @@ Three official MCP servers provide seamless integrations:
 - **Notion**: Search and create pages, manage content
 - **GitHub**: Access repos, create issues, manage PRs
 
+### 🎯 Intelligent Turn Limit System
+Automatically allocates 15-50 conversation turns based on task complexity:
+- **Simple queries**: 15 turns (explanations, lookups)
+- **Bug fixes**: 20 turns (debugging specific issues)
+- **GitHub operations**: 25-35 turns (analyzing repos, creating PRs)
+- **Major development**: 35+ turns (implementing features, refactoring)
+- **Complex multi-step**: Up to 50 turns (capped maximum)
+
+See [Turn Limit Documentation](docs/turn-limit-system.md) for details.
+
 ## 📚 Documentation
 
 ### 🚀 Getting Started

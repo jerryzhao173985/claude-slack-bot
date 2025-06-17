@@ -26,6 +26,7 @@ export class GitHubDispatcher {
           system_prompt: inputs.system_prompt,
           model: inputs.model || '',
           repository_context: inputs.repository_context || '',
+          max_turns: inputs.max_turns || '15',
         },
       }),
     });
