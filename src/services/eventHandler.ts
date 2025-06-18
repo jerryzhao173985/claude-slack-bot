@@ -3,7 +3,6 @@ import { SlackClient } from './slackClient';
 import { GitHubDispatcher } from './githubDispatcher';
 import { Logger } from '../utils/logger';
 import { GitHubUtils } from '../utils/githubUtils';
-import * as crypto from 'crypto';
 
 // Task analysis for intelligent timeout calculation
 interface TaskAnalysis {
@@ -349,8 +348,20 @@ export class EventHandler {
     // Deterministic session ID based on thread and date
     const date = new Date().toISOString().split('T')[0];
     const data = `${channel}-${threadTs}-${date}`;
-    // Use first 12 chars of hex for readability
-    return crypto.createHash('sha256').update(data).digest('hex').substring(0, 12);
+    
+    // Use Web Crypto API for Cloudflare Workers compatibility
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    
+    // Simple hash function for deterministic ID generation
+    let hash = 0;
+    for (let i = 0; i < dataBuffer.length; i++) {
+      hash = ((hash << 5) - hash) + dataBuffer[i];
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert to hex and take first 12 chars
+    return Math.abs(hash).toString(16).padStart(12, '0').substring(0, 12);
   }
 
   private shouldAutoContinue(message: string, threadContext: SlackMessage[]): boolean {
