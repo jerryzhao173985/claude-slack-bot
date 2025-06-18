@@ -140,10 +140,9 @@ export class EventHandler {
         tools: tools.join(',')
       });
 
-      // Dispatch to GitHub Actions
+      // Dispatch to GitHub Actions (exactly 10 inputs - at the limit!)
       await this.githubDispatcher.dispatchWorkflow({
         question,
-        mcp_tools: tools.join(','),
         slack_channel: channel,
         slack_ts: placeholder.ts,
         slack_thread_ts: thread_ts || ts,
@@ -152,8 +151,7 @@ export class EventHandler {
         repository_context: githubContext ? JSON.stringify(githubContext) : undefined,
         max_turns: calculatedTurns.toString(),
         timeout_minutes: timeoutMinutes.toString(),
-        session_id: sessionId,
-        enable_checkpointing: 'true'
+        session_id: sessionId
       });
 
       const duration = Date.now() - startTime;

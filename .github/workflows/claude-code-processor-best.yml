@@ -28,10 +28,6 @@ on:
         required: false
         type: string
         default: "claude-sonnet-4-20250514"
-      mcp_tools:
-        description: "Comma-separated list of MCP tools"
-        required: false
-        type: string
       repository_context:
         description: "JSON string with repository context information"
         required: false
@@ -50,11 +46,6 @@ on:
         description: "Session ID to resume a previous conversation"
         required: false
         type: string
-      enable_checkpointing:
-        description: "Enable progress checkpointing for long tasks"
-        required: false
-        type: string
-        default: "true"
 
 jobs:
   process-request:
@@ -463,7 +454,7 @@ jobs:
           fi
       
       - name: Upload checkpoint artifacts
-        if: always() && github.event.inputs.enable_checkpointing == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: checkpoint-${{ github.event.inputs.session_id || github.run_id }}

@@ -41,7 +41,6 @@ export interface ThreadContext {
 
 export interface GitHubWorkflowInputs {
   question: string;
-  mcp_tools: string;
   slack_channel: string;
   slack_ts: string;
   slack_thread_ts: string;
@@ -51,5 +50,4 @@ export interface GitHubWorkflowInputs {
   max_turns?: string;
   timeout_minutes?: string;
   session_id?: string;
-  enable_checkpointing?: string;
 }

@@ -27,7 +27,6 @@ export class GitHubDispatcher {
         ref: 'main',
         inputs: {
           question: inputs.question,
-          mcp_tools: inputs.mcp_tools,
           slack_channel: inputs.slack_channel,
           slack_ts: inputs.slack_ts,
           slack_thread_ts: inputs.slack_thread_ts || '',
@@ -37,7 +36,6 @@ export class GitHubDispatcher {
           max_turns: inputs.max_turns || '15',
           timeout_minutes: inputs.timeout_minutes || '10',
           session_id: inputs.session_id || '',
-          enable_checkpointing: inputs.enable_checkpointing || 'true',
         },
       }),
     });

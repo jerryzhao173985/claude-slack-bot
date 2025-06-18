@@ -13,12 +13,15 @@ app.get('/debug/test-dispatch', async (c: Context<{ Bindings: Env }>) => {
     // Test dispatch with minimal inputs
     await dispatcher.dispatchWorkflow({
       question: 'Test dispatch from debug endpoint',
-      mcp_tools: 'slack',
       slack_channel: 'debug-test',
       slack_ts: '1234567890.123456',
       slack_thread_ts: '',
       system_prompt: 'This is a test dispatch from the debug endpoint',
       model: '',
+      repository_context: '',
+      max_turns: '15',
+      timeout_minutes: '10',
+      session_id: 'debug-test-' + Date.now()
     });
     
     return c.json({
