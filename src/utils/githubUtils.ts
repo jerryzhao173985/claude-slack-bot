@@ -15,11 +15,11 @@ export class GitHubUtils {
     // Enhanced patterns to match GitHub repositories with additional context
     const patterns = [
       // Full GitHub URLs with PR, issues, tree, blob paths
-      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/(?:pull|issues|tree|blob)\/([^/\s]+)(?:\/(.+))?)?/i,
+      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/(?:pull|issues|tree|blob)\/([a-zA-Z0-9._-]+)(?:\/(.+?))?)?(?:\s|$|[^a-zA-Z0-9._/-])/i,
       // Simple GitHub URLs without specific paths
       /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/)?(?:\s|$|>)/i,
       // SSH URLs
-      /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?/i,
+      /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\s|$|\/|[^a-zA-Z0-9._-])/i,
       // Simple owner/repo format
       /\b([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)\b/,
     ];
