@@ -61,11 +61,17 @@ jobs:
           # Create a file to indicate Claude is running
           touch .claude_running
           
-          # Create session info file if resuming
-          if [ -n "${{ github.event.inputs.session_id }}" ]; then
-            echo "Resuming session: ${{ github.event.inputs.session_id }}"
-            echo "${{ github.event.inputs.session_id }}" > outputs/session_id.txt
+          # Create session info file
+          SESSION_ID="${{ github.event.inputs.session_id }}"
+          if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "null" ] || [ "$SESSION_ID" = "new-session" ]; then
+            # Generate a new session ID based on run ID
+            SESSION_ID="${{ github.run_id }}"
+            echo "Starting new session with ID: $SESSION_ID"
+          else
+            echo "Resuming session: $SESSION_ID"
           fi
+          echo "$SESSION_ID" > outputs/session_id.txt
+          echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
       
       - name: Install GitHub MCP Server
         run: |
@@ -81,6 +87,47 @@ jobs:
         with:
           name: checkpoint-${{ github.event.inputs.session_id }}
           path: outputs/checkpoints/
+          
+      - name: Try alternative checkpoint names (fallback)
+        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null' && github.event.inputs.session_id != 'new-session'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          # If primary download failed, try to find checkpoints by pattern
+          echo "Attempting to find checkpoints for session: ${{ github.event.inputs.session_id }}"
+          
+          # List all available artifacts
+          gh api repos/${{ github.repository }}/actions/artifacts --paginate | \
+            jq -r '.artifacts[] | select(.name | startswith("checkpoint-")) | .name' | \
+            sort -u > available_checkpoints.txt
+          
+          if [ -s available_checkpoints.txt ]; then
+            echo "Available checkpoints:"
+            cat available_checkpoints.txt
+            
+            # Try to find a matching checkpoint
+            PATTERN="${{ github.event.inputs.session_id }}"
+            MATCHING_CHECKPOINT=$(grep -F "$PATTERN" available_checkpoints.txt | head -1)
+            
+            if [ -n "$MATCHING_CHECKPOINT" ]; then
+              echo "Found matching checkpoint: $MATCHING_CHECKPOINT"
+              # Download using gh CLI
+              ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate | \
+                jq -r ".artifacts[] | select(.name == \"$MATCHING_CHECKPOINT\") | .id" | head -1)
+              
+              if [ -n "$ARTIFACT_ID" ]; then
+                echo "Downloading artifact ID: $ARTIFACT_ID"
+                gh api repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip -H "Accept: application/vnd.github+json" > checkpoint.zip
+                unzip -o checkpoint.zip -d outputs/checkpoints/ || true
+                rm -f checkpoint.zip
+              fi
+            else
+              echo "No matching checkpoint found for session: ${{ github.event.inputs.session_id }}"
+            fi
+          else
+            echo "No checkpoints available"
+          fi
       
       - name: Start Progress Monitor
         env:
@@ -164,21 +211,23 @@ jobs:
             ## Instructions
             
             ### 0. Session Management
-            - Session ID: ${{ github.event.inputs.session_id || 'new-session' }}
+            - Session ID: Check outputs/session_id.txt for the actual session ID
             - If this is a resumed session, check for checkpoint files in `outputs/checkpoints/`
             - Continue from the last checkpoint if available
+            - IMPORTANT: Always use the session ID from outputs/session_id.txt in your checkpoints
             
             ### 1. Smart Checkpointing Rules
             CRITICAL: You have ${{ github.event.inputs.timeout_minutes || '30' }} minutes total execution time.
             Save checkpoint at these critical times:
             - EVERY 5 MINUTES (set a mental timer)
-            - EVERY 5 TURNS
+            - EVERY 10-15 TURNS (not every 5 - too frequent)
             - After completing major phases (analysis, implementation, testing)
             - BEFORE starting any GitHub operations (not after)
             - Before risky operations (file updates, PR creation)
             - When reaching 50% of allocated time (save partial work)
             - After successful multi-file operations
             - IMMEDIATELY if you detect any complex operation ahead
+            - When completing a task or major subtask
             
             Checkpoint format (save to `outputs/checkpoints/progress.json`):
             ```json
@@ -187,7 +236,7 @@ jobs:
               "workflow_run_id": "${{ github.run_id }}",
               "workflow_run_number": "${{ github.run_number }}",
               "timestamp": "2025-01-01T00:00:00Z",
-              "session_id": "${{ github.event.inputs.session_id || github.run_id }}",
+              "session_id": "[READ FROM outputs/session_id.txt]",
               "phase": "analysis|implementation|testing|finalization",
               "progress_percentage": 25,
               "completed": {
@@ -208,6 +257,11 @@ jobs:
               }
             }
             ```
+            
+            CRITICAL: Before saving checkpoint:
+            1. Read the session ID from outputs/session_id.txt
+            2. Include that exact session ID in the checkpoint JSON
+            3. This ensures checkpoint can be found when resuming
             
             IMPORTANT: If approaching timeout, IMMEDIATELY:
             1. Save current work state to checkpoint
@@ -652,7 +706,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: checkpoint-${{ github.event.inputs.session_id || github.run_id }}
+          name: checkpoint-${{ env.SESSION_ID }}
           path: outputs/checkpoints/
           retention-days: 7
           if-no-files-found: ignore

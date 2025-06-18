@@ -54,7 +54,7 @@ on:
 jobs:
   process-request:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '10') }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '30') }}
     
     steps:
       - name: Checkout repository
@@ -65,6 +65,18 @@ jobs:
           mkdir -p outputs
           mkdir -p outputs/checkpoints
           mkdir -p ~/.local/bin
+          
+          # Create session info file
+          SESSION_ID="${{ github.event.inputs.session_id }}"
+          if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "null" ] || [ "$SESSION_ID" = "new-session" ]; then
+            # Generate a new session ID based on run ID
+            SESSION_ID="${{ github.run_id }}"
+            echo "Starting new session with ID: $SESSION_ID"
+          else
+            echo "Resuming session: $SESSION_ID"
+          fi
+          echo "$SESSION_ID" > outputs/session_id.txt
+          echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
       
       - name: Install GitHub MCP Server
         run: |
@@ -73,6 +85,13 @@ jobs:
           chmod +x ~/.local/bin/github-mcp-server
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
+      - name: Download previous checkpoint (if continuing)
+        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null' && github.event.inputs.session_id != 'new-session'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: checkpoint-${{ github.event.inputs.session_id }}
+          path: outputs/checkpoints/
       
       - name: Configure Claude settings
         id: claude-config
@@ -411,3 +430,12 @@ jobs:
                 }"
             fi
           fi
+      
+      - name: Upload checkpoint artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-${{ env.SESSION_ID }}
+          path: outputs/checkpoints/
+          retention-days: 7
+          if-no-files-found: ignore
