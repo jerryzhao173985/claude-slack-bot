@@ -145,9 +145,21 @@ jobs:
             ### 3. GitHub Repository Analysis
             - If user mentions a repository (e.g., owner/repo or github.com/owner/repo), use GitHub MCP tools
             - Check the system prompt for repository context - it will tell you if you have read-only or full access
+            
+            ### CRITICAL: GitHub File Update Guidelines
+            To prevent 10-minute timeouts when updating GitHub files:
+            
+            1. **For NEW files only**: Use `mcp__github__create_or_update_file`
+            2. **For EXISTING files**: 
+               - Use `mcp__github__push_files` (recommended - handles SHA automatically)
+               - Or use Bash with git commands
+               - NEVER use `create_or_update_file` on existing files
+            
+            3. **Why**: `create_or_update_file` will hang for 10 minutes on existing files due to missing SHA parameter
+            
             - Natural language commands to handle:
               - "create a PR" → Use `mcp__github__create_pull_request`
-              - "fix the typo" → Use `mcp__github__create_or_update_file` then create PR
+              - "fix the typo" → Use `mcp__github__push_files` (NOT create_or_update_file) then create PR
               - "open an issue" → Use `mcp__github__create_issue`
               - "review PR" → Use review tools
               - "what changed" → Use `mcp__github__list_commits`

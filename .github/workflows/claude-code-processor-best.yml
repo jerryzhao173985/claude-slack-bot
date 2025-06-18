@@ -219,6 +219,21 @@ jobs:
             - If branch creation fails due to "already exists", use a different name or timestamp
             - Save checkpoint BEFORE attempting complex GitHub operations
             
+            ### CRITICAL: GitHub File Update Guidelines
+            To prevent 10-minute timeouts when updating GitHub files:
+            
+            1. **For NEW files only**: Use `mcp__github__create_or_update_file`
+            2. **For EXISTING files**: 
+               - Use `mcp__github__push_files` (recommended - handles SHA automatically)
+               - Or use Bash with git commands
+               - NEVER use `create_or_update_file` on existing files
+            
+            3. **Why**: `create_or_update_file` will hang for 10 minutes on existing files due to missing SHA parameter
+            
+            4. **Quick Check**:
+               - If file exists in repo → Use `push_files` or git commands
+               - If file is new → Safe to use `create_or_update_file`
+            
             ### 3. Save to Notion (Optional)
             - If Notion MCP is available, try to save Q&A to Notion
             - Search for "Claude Code" page using `mcp__notionApi__API-post-search`

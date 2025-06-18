@@ -292,9 +292,41 @@ If you're still experiencing issues:
 
 ## GitHub Workflow Issues
 
-### Missing mcp_tools Parameter (Critical!)
+### 1. Workflow Timeout with Exit Code 124 (GitHub MCP SHA Issue)
 
-**This is the #1 cause of workflow failures!**
+**This is a critical issue causing 10-minute timeouts!**
+
+**Symptoms:**
+- GitHub Actions workflow times out after exactly 10 minutes
+- Exit code 124 (SIGTERM from timeout)
+- Last operation was attempting to update a GitHub file
+- Error logs may mention "sha" wasn't supplied
+
+**Root Cause:**
+The GitHub MCP server's `create_or_update_file` method hangs when trying to update existing files because:
+- GitHub API requires the current file's SHA for updates
+- The MCP method doesn't fetch or accept SHA parameters
+- Instead of failing quickly, it hangs until workflow timeout
+
+**Fix:**
+1. **Update workflow prompts** to avoid `create_or_update_file` for existing files
+2. **Use alternative methods**:
+   - `mcp__github__push_files` - Handles SHA automatically
+   - Direct git commands via Bash
+   - Only use `create_or_update_file` for NEW files
+
+**Prevention:**
+Add this guidance to your workflow (already added to latest versions):
+```yaml
+### CRITICAL: GitHub File Update Guidelines
+1. For NEW files only: Use mcp__github__create_or_update_file
+2. For EXISTING files: Use mcp__github__push_files or git commands
+3. NEVER use create_or_update_file on existing files (causes 10-min timeout)
+```
+
+### 2. Missing mcp_tools Parameter
+
+**This is another common cause of workflow failures!**
 
 **Symptoms:**
 - Worker shows successful dispatch but no GitHub Action runs
