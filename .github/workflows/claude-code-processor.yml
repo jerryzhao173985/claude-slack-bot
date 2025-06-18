@@ -70,13 +70,21 @@ jobs:
           SESSION_ID="${{ github.event.inputs.session_id }}"
           if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "null" ] || [ "$SESSION_ID" = "new-session" ]; then
             # Generate a new session ID based on run ID
-            SESSION_ID="${{ github.run_id }}"
+            # Prefix with 'r' to distinguish from session IDs
+            SESSION_ID="r${{ github.run_id }}"
             echo "Starting new session with ID: $SESSION_ID"
           else
             echo "Resuming session: $SESSION_ID"
+            # Validate session ID format (should start with 's' or 'r' followed by alphanumeric)
+            if ! echo "$SESSION_ID" | grep -qE '^[sr][a-zA-Z0-9]+$'; then
+              echo "Warning: Session ID format may be invalid: $SESSION_ID"
+            fi
           fi
           echo "$SESSION_ID" > outputs/session_id.txt
           echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
+          
+          # Log session info for debugging
+          echo "SESSION_INFO: ID=$SESSION_ID, Type=${SESSION_ID:0:1}, ThreadTS=${{ github.event.inputs.slack_thread_ts }}"
       
       - name: Install GitHub MCP Server
         run: |
@@ -90,7 +98,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: checkpoint-${{ github.event.inputs.session_id }}
+          name: checkpoint-${{ env.SESSION_ID }}
           path: outputs/checkpoints/
       
       - name: Configure Claude settings

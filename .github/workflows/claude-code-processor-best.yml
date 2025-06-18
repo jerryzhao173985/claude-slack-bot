@@ -65,13 +65,21 @@ jobs:
           SESSION_ID="${{ github.event.inputs.session_id }}"
           if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "null" ] || [ "$SESSION_ID" = "new-session" ]; then
             # Generate a new session ID based on run ID
-            SESSION_ID="${{ github.run_id }}"
+            # Prefix with 'r' to distinguish from session IDs
+            SESSION_ID="r${{ github.run_id }}"
             echo "Starting new session with ID: $SESSION_ID"
           else
             echo "Resuming session: $SESSION_ID"
+            # Validate session ID format (should start with 's' or 'r' followed by alphanumeric)
+            if ! echo "$SESSION_ID" | grep -qE '^[sr][a-zA-Z0-9]+$'; then
+              echo "Warning: Session ID format may be invalid: $SESSION_ID"
+            fi
           fi
           echo "$SESSION_ID" > outputs/session_id.txt
           echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
+          
+          # Log session info for debugging
+          echo "SESSION_INFO: ID=$SESSION_ID, Type=${SESSION_ID:0:1}, ThreadTS=${{ github.event.inputs.slack_thread_ts }}"
       
       - name: Install GitHub MCP Server
         run: |
@@ -85,7 +93,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: checkpoint-${{ github.event.inputs.session_id }}
+          name: checkpoint-${{ env.SESSION_ID }}
           path: outputs/checkpoints/
           
       - name: Try alternative checkpoint names (fallback)
@@ -95,7 +103,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           # If primary download failed, try to find checkpoints by pattern
-          echo "Attempting to find checkpoints for session: ${{ github.event.inputs.session_id }}"
+          echo "Attempting to find checkpoints for session: ${{ env.SESSION_ID }}"
           
           # List all available artifacts
           gh api repos/${{ github.repository }}/actions/artifacts --paginate | \
@@ -107,7 +115,7 @@ jobs:
             cat available_checkpoints.txt
             
             # Try to find a matching checkpoint
-            PATTERN="${{ github.event.inputs.session_id }}"
+            PATTERN="${{ env.SESSION_ID }}"
             MATCHING_CHECKPOINT=$(grep -F "$PATTERN" available_checkpoints.txt | head -1)
             
             if [ -n "$MATCHING_CHECKPOINT" ]; then
@@ -123,7 +131,7 @@ jobs:
                 rm -f checkpoint.zip
               fi
             else
-              echo "No matching checkpoint found for session: ${{ github.event.inputs.session_id }}"
+              echo "No matching checkpoint found for session: ${{ env.SESSION_ID }}"
             fi
           else
             echo "No checkpoints available"
@@ -563,7 +571,7 @@ jobs:
           This could be due to high demand or a temporary API issue.
           
           **Your request:** ${{ github.event.inputs.question }}
-          **Session ID:** `${{ github.event.inputs.session_id || github.run_id }}`
+          **Session ID:** `${{ env.SESSION_ID }}`
           
           Please try again in a few moments by mentioning me with:
           • `@claude continue` (to resume this exact request)
@@ -659,7 +667,7 @@ jobs:
               PENDING_STEPS="${{ steps.check-session.outputs.pending_steps }}"
               
               if [ -n "$PENDING_STEPS" ]; then
-                CONTINUATION_MSG=":information_source: Task partially completed. To continue with remaining steps, mention me with: \`continue session $SESSION_ID\`\n\nPending steps:\n$PENDING_STEPS"
+                CONTINUATION_MSG=":information_source: Task partially completed. To continue with remaining steps, mention me with: \`@claude continue\` or \`@claude continue session $SESSION_ID\`\n\nPending steps:\n$PENDING_STEPS"
                 
                 curl -X POST https://slack.com/api/chat.postMessage \
                   -H "Authorization: Bearer $SLACK_BOT_TOKEN" \

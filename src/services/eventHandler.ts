@@ -59,7 +59,17 @@ export class EventHandler {
       if (!sessionId && (thread_ts || isAutoContinuation)) {
         // Generate deterministic session ID for this thread
         sessionId = this.generateSessionId(channel, thread_ts || ts);
-        this.logger.info('Generated session ID for thread', { sessionId, channel, threadTs: thread_ts });
+        this.logger.info('Generated session ID for thread', { 
+          sessionId, 
+          channel, 
+          threadTs: thread_ts || ts,
+          isAutoContinuation 
+        });
+      } else if (sessionId) {
+        this.logger.info('Using extracted session ID', { 
+          sessionId, 
+          extractedFrom: text.substring(0, 100) 
+        });
       }
       
       const sessionIndicator = sessionId ? ' (resuming session)' : '';
@@ -295,9 +305,9 @@ export class EventHandler {
 
 
   private generateSessionId(channel: string, threadTs: string): string {
-    // Deterministic session ID based on thread and date
-    const date = new Date().toISOString().split('T')[0];
-    const data = `${channel}-${threadTs}-${date}`;
+    // Deterministic session ID based on channel and thread only (no date)
+    // This ensures sessions can continue across days
+    const data = `${channel}-${threadTs}`;
     
     // Use Web Crypto API for Cloudflare Workers compatibility
     const encoder = new TextEncoder();
@@ -311,7 +321,8 @@ export class EventHandler {
     }
     
     // Convert to hex and take first 12 chars
-    return Math.abs(hash).toString(16).padStart(12, '0').substring(0, 12);
+    // Prefix with 's' to distinguish from numeric run IDs
+    return 's' + Math.abs(hash).toString(16).padStart(11, '0').substring(0, 11);
   }
 
   private shouldAutoContinue(message: string, threadContext: SlackMessage[]): boolean {
