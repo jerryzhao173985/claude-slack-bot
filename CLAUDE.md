@@ -89,15 +89,42 @@ Currently using: `claude-3-7-sonnet-20250219`
 
 This model provides a good balance of capability and response time for Slack interactions.
 
-## GitHub Integration (Fully Enhanced)
+## GitHub Integration (Complete MCP Implementation)
 
-The bot now includes comprehensive GitHub capabilities with intelligent permission handling:
+The bot now includes comprehensive GitHub capabilities with all 50+ MCP tools properly configured:
 
 ### Features
 - **Natural Language Commands**: Full spectrum from analysis to repository management
 - **Smart Permissions**: Full access to your repos, read-only for others
 - **URL Pattern Support**: Handles .git URLs, SSH format, direct links
-- **26+ Tools**: Complete GitHub API coverage through MCP
+- **50+ Tools**: Complete GitHub API coverage through MCP v0.5.0
+
+### Tool Categories
+
+#### 📁 Repository Operations
+- Search, create, fork repositories
+- Manage branches and tags
+- File operations (read, create, update, delete)
+- Multi-file commits with `push_files`
+
+#### 🐛 Issue Management
+- Create, update, search issues
+- Add comments and manage labels
+- Assign Copilot for assistance
+
+#### 🔀 Pull Request Operations
+- Create, review, merge PRs
+- Add review comments
+- Request Copilot reviews
+- Check PR status and diffs
+
+#### 🔔 Notifications
+- List and manage notifications
+- Configure notification subscriptions
+
+#### 🔒 Security Scanning
+- Code scanning alerts
+- Secret scanning alerts
 
 ### Read Operations (Any Repository)
 ```
@@ -105,6 +132,7 @@ The bot now includes comprehensive GitHub capabilities with intelligent permissi
 @claude find security issues in facebook/react
 @claude explain https://github.com/nodejs/node/blob/main/lib/fs.js
 @claude what recent changes were made to kubernetes/kubernetes?
+@claude check code scanning alerts for my-org/my-app
 ```
 
 ### Write Operations (Your Repositories)
@@ -114,15 +142,21 @@ The bot now includes comprehensive GitHub capabilities with intelligent permissi
 @claude create a PR from feature/new-api to main
 @claude open an issue about the API performance
 @claude review and merge PR #123
+@claude request Copilot to review my PR
 ```
 
 ### Configuration
-Using the official `github-mcp-server` from GitHub (https://github.com/github/github-mcp-server):
-- Distributed as binary (not npm package)
-- Requires `stdio` argument for MCP communication
-- Uses `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable
-- Supports all toolsets for complete GitHub API access
-- Provides repository management, file operations, PR/issue handling, and more
+Using the official `github-mcp-server` v0.5.0 from GitHub:
+- Binary distribution with stdio communication
+- Full toolset enabled with `--toolsets all`
+- Authenticated via `GITHUB_PERSONAL_ACCESS_TOKEN`
+- All 50+ GitHub MCP tools properly allowed in workflows
+
+### Security Model
+- Permission-based architecture
+- Read-only by default
+- Explicit permissions required for writes
+- User-controlled MCP server configuration
 
 ### How It Works
 1. **Repository Detection**: Automatically detects various GitHub URL formats
@@ -130,4 +164,4 @@ Using the official `github-mcp-server` from GitHub (https://github.com/github/gi
 3. **Tool Selection**: Enables appropriate tools based on permissions
 4. **Context Building**: Provides rich context to Claude for better assistance
 
-The system intelligently determines access level and available operations based on repository ownership.
+The system includes all GitHub MCP tools to prevent permission errors and enable full GitHub API functionality.
