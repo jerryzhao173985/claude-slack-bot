@@ -335,15 +335,19 @@ jobs:
           claude_env: ${{ steps.claude-config.outputs.claude_env }}
       
       - name: Handle Claude API Error
-        if: failure() && steps.claude-process.outcome == 'failure'
+        if: steps.claude-process.outcome == 'failure'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
+          echo "Claude process outcome: ${{ steps.claude-process.outcome }}"
           echo "Claude API call failed. Since we had an API failure, providing helpful retry message..."
           
           # Since the Claude process failed and no response was generated,
           # we'll assume it could be an overload or other API issue
           # Always provide a helpful message with retry instructions
+          
+          # Create outputs directory if it doesn't exist
+          mkdir -p outputs
           
           # Create a response file with retry instructions
           cat > outputs/slack_response.txt << 'EOF'
@@ -362,6 +366,8 @@ jobs:
           EOF
           
           echo "Created error response with retry instructions"
+          echo "Response file content:"
+          cat outputs/slack_response.txt
       
       - name: Log turn allocation
         if: always()
