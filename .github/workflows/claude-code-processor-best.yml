@@ -79,7 +79,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
       - name: Download previous checkpoint (if continuing)
-        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null'
+        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null' && github.event.inputs.session_id != 'new-session'
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
