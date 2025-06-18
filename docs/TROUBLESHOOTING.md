@@ -125,18 +125,79 @@ Look for:
 **Fix:** Get new token from Slack app settings
 
 #### Claude API Errors
-**Cause:** Invalid API key or no credits
-**Fix:**
+
+##### API Error 529: Overloaded
+**Symptoms:**
+- Error: `{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`
+- Bot responds with "Claude encountered an error"
+- Common during high traffic periods
+
+**Automatic Handling (New!):**
+- The system now automatically retries up to 3 times
+- Uses exponential backoff (30s, 60s delays)
+- User sees helpful retry message if all attempts fail
+
+**Manual Recovery:**
+- Simply mention the bot again: `@claude continue`
+- Or repeat your original request
+- Session is preserved for seamless continuation
+
+##### Other API Errors
+**Invalid API Key:**
 - Check ANTHROPIC_API_KEY is correct
 - Verify you have API credits available
-- Test API directly:
+
+**Test API directly:**
 ```bash
 curl https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
-  -d '{"model":"claude-3-haiku-20240307","max_tokens":100,"messages":[{"role":"user","content":"Hi"}]}'
+  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,"messages":[{"role":"user","content":"Hi"}]}'
 ```
+
+##### Tool Use/Result Errors
+
+**Error:** "tool_use ids were found without tool_result blocks immediately after"
+
+**Symptoms:**
+- Claude makes duplicate calls to fetch the same file
+- Error occurs when processing complex requests
+- Workflow fails with API Error 400
+
+**Root Cause:**
+- Claude makes multiple tool calls without proper result pairing
+- Duplicate tool calls violate API message structure requirements
+- Each tool_use MUST have a corresponding tool_result immediately after
+
+**Example of the Problem:**
+```
+❌ Bad Pattern:
+tool_use: toolu_01ABC... (fetch README.md)
+tool_use: toolu_01DEF... (fetch README.md again) 
+tool_use: toolu_01GHI... (fetch package.json)
+```
+
+**Automatic Handling:**
+- Workflow now detects this specific error
+- Provides targeted error message explaining the issue
+- Suggests retry with better tool management
+
+**Prevention (Implemented in Workflows):**
+1. **Anti-duplication instructions** added to prompts
+2. **Tool call tracking** guidelines for Claude
+3. **Batch operations** encouraged
+4. **File caching** instructions
+
+**Manual Recovery:**
+- `@claude continue` - Claude will retry with better tool management
+- Session is preserved for continuation
+- Claude instructed to avoid duplicate calls
+
+**For Developers:**
+- See `/docs/tool-call-best-practices.md` for detailed guidelines
+- This is a known SDK limitation being addressed
+- Workarounds implemented in workflow prompts
 
 ### 4. Notion Integration Issues
 
@@ -238,12 +299,34 @@ npm run deploy
 - Check GitHub Actions runtime
 - Consider using faster models for simple queries
 - Monitor API rate limits
+- During high load, expect automatic retries (adds 30-90s)
+
+#### API Overload Handling
+**New automatic retry features:**
+- Detects 529 errors and retries automatically
+- Up to 3 attempts with exponential backoff
+- Preserves session state between attempts
+- Shows retry count in execution details
 
 #### Worker Timeout
 - Cloudflare Workers have a 10ms CPU limit
 - Complex operations should be deferred to GitHub Actions
 
-### 10. Notion Pages Created Without Content
+### 10. Error Recovery Best Practices
+
+#### When Claude Fails to Complete a Task
+1. **Check the error message** - It will indicate if retry is possible
+2. **Use session continuation**: `@claude continue`
+3. **Check for partial work** - Often tasks are partially complete
+4. **Review checkpoint files** - Progress is saved automatically
+
+#### Session Management
+- Sessions are deterministic based on thread
+- Checkpoints save every 5 minutes
+- Can resume even after hours/days
+- Use `@claude continue session [id]` for specific sessions
+
+### 11. Notion Pages Created Without Content
 
 **Issue**: Pages appear in Notion with only titles, no question/answer/metadata content.
 

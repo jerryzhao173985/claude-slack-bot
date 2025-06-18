@@ -139,6 +139,36 @@ jobs:
             
             ## Instructions
             
+            ### CRITICAL: Tool Call Best Practices to Prevent Errors
+            To avoid "tool_use ids were found without tool_result blocks" errors:
+            
+            1. **Track Your Tool Calls**:
+               - Maintain a mental list of files you've already read
+               - NEVER make duplicate calls to fetch the same file
+               - If you need file content again, refer to your previous read
+            
+            2. **Batch Tool Calls Efficiently**:
+               - When reading multiple files, make ALL read calls in a single response
+               - Example: If you need README.md and package.json, call both tools at once
+               - This ensures proper tool_use/tool_result pairing
+            
+            3. **Before Any Tool Call**:
+               - Ask yourself: "Have I already fetched this content?"
+               - If YES: Use the content from memory
+               - If NO: Make the tool call ONCE
+               - If UNSURE: Check your conversation history first
+            
+            4. **Tool Call Sequence Rules**:
+               - Each tool_use MUST have a corresponding tool_result
+               - Wait for results before making new tool calls
+               - Never make the same tool call twice in one session
+            
+            5. **File Reading Guidelines**:
+               - Read each file ONLY ONCE per session
+               - Cache file contents in your context
+               - Announce which files you're about to read: "I'll read files: X, Y, Z"
+               - Then read them all in one tool response
+            
             ### 1. Save to Notion (if available)
             - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
             - If found, create a sub-page using `mcp__notionApi__API-post-page` with ALL content in the `children` array:

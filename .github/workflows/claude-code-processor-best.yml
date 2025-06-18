@@ -224,6 +224,36 @@ jobs:
             - Continue from the last checkpoint if available
             - IMPORTANT: Always use the session ID from outputs/session_id.txt in your checkpoints
             
+            ### CRITICAL: Tool Call Best Practices to Prevent Errors
+            To avoid "tool_use ids were found without tool_result blocks" errors:
+            
+            1. **Track Your Tool Calls**:
+               - Maintain a mental list of files you've already read
+               - NEVER make duplicate calls to fetch the same file
+               - If you need file content again, refer to your previous read
+            
+            2. **Batch Tool Calls Efficiently**:
+               - When reading multiple files, make ALL read calls in a single response
+               - Example: If you need README.md and package.json, call both tools at once
+               - This ensures proper tool_use/tool_result pairing
+            
+            3. **Before Any Tool Call**:
+               - Ask yourself: "Have I already fetched this content?"
+               - If YES: Use the content from memory
+               - If NO: Make the tool call ONCE
+               - If UNSURE: Check your conversation history first
+            
+            4. **Tool Call Sequence Rules**:
+               - Each tool_use MUST have a corresponding tool_result
+               - Wait for results before making new tool calls
+               - Never make the same tool call twice in one session
+            
+            5. **File Reading Guidelines**:
+               - Read each file ONLY ONCE per session
+               - Cache file contents in your context
+               - Announce which files you're about to read: "I'll read files: X, Y, Z"
+               - Then read them all in one tool response
+            
             ### 1. Smart Checkpointing Rules
             CRITICAL: You have ${{ github.event.inputs.timeout_minutes || '30' }} minutes total execution time.
             Save checkpoint at these critical times:
@@ -555,17 +585,50 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           echo "Claude process outcome: ${{ steps.claude-process.outcome }}"
-          echo "Claude API call failed. Since we had an API failure, providing helpful retry message..."
-          
-          # Since the Claude process failed and no response was generated,
-          # we'll assume it could be an overload or other API issue
-          # Always provide a helpful message with retry instructions
+          echo "Claude API call failed. Analyzing error type..."
           
           # Create outputs directory if it doesn't exist
           mkdir -p outputs
           
-          # Create a response file with retry instructions
-          cat > outputs/slack_response.txt << 'EOF'
+          # Check for specific error types
+          ERROR_TYPE="unknown"
+          EXECUTION_FILE="/home/runner/work/_temp/claude-execution-output.json"
+          
+          if [ -f "$EXECUTION_FILE" ]; then
+            # Check for tool_use/tool_result pairing error
+            if grep -q "tool_use ids were found without tool_result blocks" "$EXECUTION_FILE"; then
+              ERROR_TYPE="tool_pairing"
+              echo "Detected tool_use/tool_result pairing error"
+            elif grep -q "overloaded" "$EXECUTION_FILE" || grep -q "529" "$EXECUTION_FILE"; then
+              ERROR_TYPE="overload"
+              echo "Detected API overload error"
+            elif grep -q "rate.limit" "$EXECUTION_FILE"; then
+              ERROR_TYPE="rate_limit"
+              echo "Detected rate limit error"
+            fi
+          fi
+          
+          # Create appropriate error message based on type
+          if [ "$ERROR_TYPE" = "tool_pairing" ]; then
+            cat > outputs/slack_response.txt << 'EOF'
+          :warning: Claude encountered a tool usage error.
+          
+          **Error:** Tool call sequencing issue detected (duplicate or unpaired tool calls)
+          
+          This is a known issue that can occur when processing complex requests. The system attempted to make duplicate tool calls which violates API requirements.
+          
+          **Your request:** ${{ github.event.inputs.question }}
+          **Session ID:** `${{ env.SESSION_ID }}`
+          
+          **To continue:**
+          • `@claude continue` - I'll try again with better tool management
+          • Or rephrase your request to be more specific
+          
+          The session has been saved, and I'll be more careful with tool usage next time!
+          EOF
+          else
+            # Generic error message for other types
+            cat > outputs/slack_response.txt << 'EOF'
           :hourglass_flowing_sand: Claude encountered an error processing your request.
           
           This could be due to high demand or a temporary API issue.
@@ -579,8 +642,9 @@ jobs:
           
           The session has been saved, so I can pick up where we left off!
           EOF
+          fi
           
-          echo "Created error response with retry instructions"
+          echo "Created error response for type: $ERROR_TYPE"
           echo "Response file content:"
           cat outputs/slack_response.txt
       

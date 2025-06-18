@@ -97,6 +97,12 @@ Automatically allocates 15-50 conversation turns based on task complexity:
 - **Bug fixes**: 20 turns (debugging specific issues)
 - **GitHub operations**: 25-35 turns (analyzing repos, creating PRs)
 - **Major development**: 35+ turns (implementing features, refactoring)
+
+### 🔄 Automatic Error Recovery
+The bot now handles API errors gracefully:
+- **Tool usage errors**: Smart detection and recovery guidance
+- **Session preservation**: Continue where you left off with `@claude continue`
+- **Detailed error messages**: Clear explanations and next steps
 - **Complex multi-step**: Up to 50 turns (capped maximum)
 
 See [Turn Limit Documentation](docs/turn-limit-system.md) for details.
@@ -108,6 +114,7 @@ Intelligent task handling with automatic continuation:
 - Base: 10 minutes for simple tasks
 - Scales up to 45 minutes for complex operations
 - Factors: GitHub operations, file count, analysis depth, MCP usage
+
 
 **Automatic Session Management**:
 ```slack
