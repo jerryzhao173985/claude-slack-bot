@@ -247,8 +247,8 @@ jobs:
             - Save your response to: `outputs/slack_response.txt`
             - Use the Write tool to save the file
             - Format your response appropriately for Slack (use markdown where helpful)
-            - Do NOT include any metadata or instructions in the response
-            - Just save the clean response text that should be shown to the user
+            - Save the clean response text that should be shown to the user
+            - Metadata will be automatically appended to your response by the workflow
             - If you couldn't complete everything:
               - Save a final checkpoint with exact next steps
               - Include in response: "✅ Made significant progress! I've completed [X]. To finish [Y], just say 'continue'."
@@ -333,6 +333,90 @@ jobs:
             }
           max_turns: ${{ github.event.inputs.max_turns || '15' }}
           claude_env: ${{ steps.claude-config.outputs.claude_env }}
+      
+      - name: Extract and Append Metadata
+        if: steps.claude-process.outcome == 'success'
+        run: |
+          echo "Extracting metadata from Claude execution..."
+          
+          # Check if execution file exists
+          EXECUTION_FILE="${{ steps.claude-process.outputs.execution_file }}"
+          if [ -z "$EXECUTION_FILE" ] || [ ! -f "$EXECUTION_FILE" ]; then
+            echo "No execution file found, checking default location..."
+            # Try default location from logs
+            EXECUTION_FILE="/home/runner/work/_temp/claude-execution-output.json"
+          fi
+          
+          if [ -f "$EXECUTION_FILE" ]; then
+            echo "Found execution file at: $EXECUTION_FILE"
+            
+            # Extract metadata using jq
+            METADATA=$(jq -r 'select(.type == "result") | {
+              cost: .total_cost_usd,
+              duration_ms: .duration_ms,
+              duration_api_ms: .duration_api_ms,
+              num_turns: .num_turns,
+              session_id: .session_id,
+              input_tokens: (.usage.input_tokens + .usage.cache_read_input_tokens),
+              output_tokens: .usage.output_tokens,
+              cache_creation_tokens: .usage.cache_creation_input_tokens
+            }' "$EXECUTION_FILE" | tail -1)
+            
+            if [ -n "$METADATA" ] && [ "$METADATA" != "null" ]; then
+              # Parse individual fields
+              COST=$(echo "$METADATA" | jq -r '.cost // 0' | xargs printf "%.2f")
+              DURATION_MS=$(echo "$METADATA" | jq -r '.duration_ms // 0')
+              API_DURATION_MS=$(echo "$METADATA" | jq -r '.duration_api_ms // 0')
+              NUM_TURNS=$(echo "$METADATA" | jq -r '.num_turns // 0')
+              SESSION_ID=$(echo "$METADATA" | jq -r '.session_id // "unknown"')
+              INPUT_TOKENS=$(echo "$METADATA" | jq -r '.input_tokens // 0')
+              OUTPUT_TOKENS=$(echo "$METADATA" | jq -r '.output_tokens // 0')
+              CACHE_TOKENS=$(echo "$METADATA" | jq -r '.cache_creation_tokens // 0')
+              
+              # Convert durations to human-readable format
+              DURATION_SEC=$((DURATION_MS / 1000))
+              DURATION_MIN=$((DURATION_SEC / 60))
+              DURATION_REMAINING_SEC=$((DURATION_SEC % 60))
+              
+              API_DURATION_SEC=$((API_DURATION_MS / 1000))
+              API_DURATION_MIN=$((API_DURATION_SEC / 60))
+              API_DURATION_REMAINING_SEC=$((API_DURATION_SEC % 60))
+              
+              # Format token numbers with commas
+              format_number() {
+                echo "$1" | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta'
+              }
+              
+              INPUT_TOKENS_FORMATTED=$(format_number $INPUT_TOKENS)
+              OUTPUT_TOKENS_FORMATTED=$(format_number $OUTPUT_TOKENS)
+              TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
+              TOTAL_TOKENS_FORMATTED=$(format_number $TOTAL_TOKENS)
+              
+              # Append metadata to response file
+              if [ -f "outputs/slack_response.txt" ]; then
+                echo "" >> outputs/slack_response.txt
+                echo "---" >> outputs/slack_response.txt
+                echo "📊 **Execution Details**" >> outputs/slack_response.txt
+                echo "• 💰 Cost: \$$COST" >> outputs/slack_response.txt
+                echo "• ⏱️ Duration: ${DURATION_MIN}m ${DURATION_REMAINING_SEC}s (API: ${API_DURATION_MIN}m ${API_DURATION_REMAINING_SEC}s)" >> outputs/slack_response.txt
+                echo "• 🔄 Turns: $NUM_TURNS/${{ github.event.inputs.max_turns || '15' }}" >> outputs/slack_response.txt
+                echo "• 🎯 Tokens: ${INPUT_TOKENS_FORMATTED} in / ${OUTPUT_TOKENS_FORMATTED} out (${TOTAL_TOKENS_FORMATTED} total)" >> outputs/slack_response.txt
+                if [ "$CACHE_TOKENS" -gt 0 ]; then
+                  CACHE_TOKENS_FORMATTED=$(format_number $CACHE_TOKENS)
+                  echo "• 💾 Cache: ${CACHE_TOKENS_FORMATTED} tokens created" >> outputs/slack_response.txt
+                fi
+                echo "• 🏷️ Session: \`$SESSION_ID\`" >> outputs/slack_response.txt
+                
+                echo "Metadata appended to response file"
+              else
+                echo "Warning: Response file not found, metadata not appended"
+              fi
+            else
+              echo "Warning: Could not parse metadata from execution file"
+            fi
+          else
+            echo "Warning: Execution file not found at any location"
+          fi
       
       - name: Handle Claude API Error
         if: steps.claude-process.outcome == 'failure'
