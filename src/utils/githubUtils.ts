@@ -14,8 +14,10 @@ export class GitHubUtils {
   static extractGitHubContext(text: string, githubUsername?: string): GitHubContext | null {
     // Enhanced patterns to match GitHub repositories with additional context
     const patterns = [
-      // Full GitHub URLs with branch and path
-      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^/\s]+)(?:\/(.+))?)?/i,
+      // Full GitHub URLs with PR, issues, tree, blob paths
+      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/(?:pull|issues|tree|blob)\/([^/\s]+)(?:\/(.+))?)?/i,
+      // Simple GitHub URLs without specific paths
+      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/)?(?:\s|$|>)/i,
       // SSH URLs
       /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?/i,
       // Simple owner/repo format

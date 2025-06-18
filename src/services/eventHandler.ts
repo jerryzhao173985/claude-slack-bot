@@ -308,11 +308,11 @@ export class EventHandler {
     // Patterns to match GitHub repositories
     const patterns = [
       // Full GitHub URLs with optional .git extension
-      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/|$)/i,
+      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/|$)/i,
       // SSH URLs
-      /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/|$)/i,
+      /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?(?:\/|$)/i,
       // Git clone commands
-      /git\s+clone\s+(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?/i,
+      /git\s+clone\s+(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)(?:\.git)?/i,
       // Owner/repo format
       /\b([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)\b/,
       // With common prefixes
