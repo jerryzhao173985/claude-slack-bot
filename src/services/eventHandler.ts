@@ -371,6 +371,15 @@ export class EventHandler {
       analysis.taskPhases.push('github-operations');
     }
 
+    // Check for PR review tasks (need significant time)
+    const prReviewPatterns = /\b(review|address|respond to|implement|fix)\s*(the\s+|all\s+|every\s+)?(pr|pull request|reviewer|comment|feedback)/i;
+    if (prReviewPatterns.test(text) && mcpTools.includes('github')) {
+      analysis.hasGitHubWrite = true;
+      analysis.complexityScore += 30; // PR reviews are complex
+      analysis.taskPhases.push('pr-review');
+      analysis.estimatedFiles = Math.max(analysis.estimatedFiles, 5); // Assume multiple files
+    }
+
     // Estimate file operations
     const filePatterns = /\b(file|component|module|class|function|api|endpoint|service)s?\b/gi;
     const fileMatches = text.match(filePatterns) || [];
@@ -409,7 +418,7 @@ export class EventHandler {
   private calculateDynamicTimeout(turns: number, taskAnalysis: TaskAnalysis): number {
     // Base formula: 30 seconds per turn + buffer
     const baseSeconds = turns * 30;
-    const bufferMinutes = 5;
+    const bufferMinutes = 10; // Increased buffer for safety
     
     // Task-specific multipliers
     const multipliers = {
@@ -425,8 +434,8 @@ export class EventHandler {
     // Calculate timeout in minutes
     const calculatedMinutes = Math.ceil((baseSeconds / 60) * totalMultiplier) + bufferMinutes;
     
-    // Smart capping: 45 min for workflow, leaving 15 min buffer for GitHub's 60 min limit
-    const finalTimeout = Math.min(calculatedMinutes, 45);
+    // Minimum 20 minutes for any task, 45 max for GitHub's limit
+    const finalTimeout = Math.max(20, Math.min(calculatedMinutes, 45));
     
     this.logger.info('Dynamic timeout calculated', {
       turns,

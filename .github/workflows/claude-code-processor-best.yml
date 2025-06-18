@@ -37,7 +37,7 @@ on:
         description: "Workflow timeout in minutes (dynamically calculated)"
         required: false
         type: string
-        default: "10"
+        default: "30"
       session_id:
         description: "Session ID to resume a previous conversation"
         required: false
@@ -46,7 +46,7 @@ on:
 jobs:
   process-request:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '10') }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '30') }}
     
     steps:
       - name: Checkout repository
@@ -169,11 +169,16 @@ jobs:
             - Continue from the last checkpoint if available
             
             ### 1. Smart Checkpointing Rules
+            CRITICAL: You have ${{ github.event.inputs.timeout_minutes || '30' }} minutes total execution time.
             Save checkpoint at these critical times:
+            - EVERY 5 MINUTES (set a mental timer)
+            - EVERY 5 TURNS
             - After completing major phases (analysis, implementation, testing)
+            - BEFORE starting any GitHub operations (not after)
             - Before risky operations (file updates, PR creation)
-            - When reaching 70% of allocated turns or time
+            - When reaching 50% of allocated time (save partial work)
             - After successful multi-file operations
+            - IMMEDIATELY if you detect any complex operation ahead
             
             Checkpoint format (save to `outputs/checkpoints/progress.json`):
             ```json
@@ -198,10 +203,16 @@ jobs:
               "context": {
                 "original_request": "${{ github.event.inputs.question }}",
                 "key_findings": "...",
-                "decisions_made": "..."
+                "decisions_made": "...",
+                "partial_work": "Description of any incomplete work"
               }
             }
             ```
+            
+            IMPORTANT: If approaching timeout, IMMEDIATELY:
+            1. Save current work state to checkpoint
+            2. Write partial response to outputs/slack_response.txt
+            3. Include what was completed and what remains
             
             ### 2. Process the Request
             - If resuming session, load checkpoint from outputs/checkpoints/progress.json
@@ -378,6 +389,7 @@ jobs:
               }
             }
           max_turns: ${{ github.event.inputs.max_turns || '15' }}
+          timeout_minutes: ${{ github.event.inputs.timeout_minutes || '30' }}
           claude_env: ${{ steps.claude-config.outputs.claude_env }}
       
       - name: Extract and Append Metadata
