@@ -32,7 +32,6 @@ export class GitHubDispatcher {
           slack_thread_ts: inputs.slack_thread_ts || '',
           system_prompt: inputs.system_prompt,
           model: inputs.model || '',
-          repository_context: inputs.repository_context || '',
           max_turns: inputs.max_turns || '15',
           timeout_minutes: inputs.timeout_minutes || '10',
           session_id: inputs.session_id || '',

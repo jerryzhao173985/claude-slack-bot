@@ -46,7 +46,6 @@ export interface GitHubWorkflowInputs {
   slack_thread_ts: string;
   system_prompt: string;
   model?: string;
-  repository_context?: string;
   max_turns?: string;
   timeout_minutes?: string;
   session_id?: string;

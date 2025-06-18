@@ -18,7 +18,6 @@ app.get('/debug/test-dispatch', async (c: Context<{ Bindings: Env }>) => {
       slack_thread_ts: '',
       system_prompt: 'This is a test dispatch from the debug endpoint',
       model: '',
-      repository_context: '',
       max_turns: '15',
       timeout_minutes: '10',
       session_id: 'debug-test-' + Date.now()

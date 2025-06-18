@@ -28,10 +28,6 @@ on:
         required: false
         type: string
         default: "claude-sonnet-4-20250514"
-      repository_context:
-        description: "JSON string with repository context information"
-        required: false
-        type: string
       max_turns:
         description: "Maximum conversation turns (dynamically calculated)"
         required: false
@@ -213,8 +209,7 @@ jobs:
             - CRITICAL: If the question is short (e.g., "do it", "solve this", "continue"), check the thread context to understand what task to complete
             - Look for unfinished tasks or requests in the thread history and complete them
             - Use any necessary MCP tools to gather information
-            - For GitHub repositories, check the repository context for access level
-            - Repository context is provided in: ${{ github.event.inputs.repository_context }}
+            - For GitHub repositories, Claude will automatically understand and work with any GitHub URLs you provide
             - When creating branches, use unique names with timestamps: feature/[description]-[timestamp]
             - If branch creation fails due to "already exists", use a different name or timestamp
             - Save checkpoint BEFORE attempting complex GitHub operations
