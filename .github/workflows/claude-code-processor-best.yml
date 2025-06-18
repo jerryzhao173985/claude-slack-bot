@@ -89,14 +89,19 @@ jobs:
       - name: Start Progress Monitor
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ github.event.inputs.slack_channel }}
+          SLACK_TS: ${{ github.event.inputs.slack_ts }}
         run: |
           # Background process to update Slack with progress
           # Use setsid to create a new process group for easier cleanup
+          # Export variables for the subshell
+          export SLACK_BOT_TOKEN SLACK_CHANNEL SLACK_TS
+          
           setsid bash -c '
             while [ -f ".claude_running" ]; do
               if [ -f "outputs/checkpoints/progress.json" ]; then
-                PROGRESS=$(jq -r '.progress_percentage // 0' outputs/checkpoints/progress.json 2>/dev/null || echo 0)
-                PHASE=$(jq -r '.phase // "initializing"' outputs/checkpoints/progress.json 2>/dev/null || echo "initializing")
+                PROGRESS=$(jq -r ".progress_percentage // 0" outputs/checkpoints/progress.json 2>/dev/null || echo 0)
+                PHASE=$(jq -r ".phase // \"initializing\"" outputs/checkpoints/progress.json 2>/dev/null || echo "initializing")
                 
                 # Create progress bar
                 FILLED=$((PROGRESS / 5))
@@ -107,17 +112,17 @@ jobs:
                 
                 # Update Slack message with progress
                 curl -s -X POST https://slack.com/api/chat.update \
-                  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                  -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
                   -H "Content-Type: application/json" \
                   -d "{
-                    \"channel\": \"${{ github.event.inputs.slack_channel }}\",
-                    \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+                    \"channel\": \"${SLACK_CHANNEL}\",
+                    \"ts\": \"${SLACK_TS}\",
                     \"text\": \"🤔 Working on your request... [${PROGRESS}%] - ${PHASE}\\n${BAR}\"
                   }" > /dev/null 2>&1
               fi
               sleep 30
             done
-          ' &
+          ' > /tmp/progress_monitor.log 2>&1 &
           MONITOR_PID=$!
           echo "Progress monitor started with PID $MONITOR_PID"
           echo $MONITOR_PID > .monitor_pid
@@ -146,7 +151,9 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Process with Claude
+        id: claude-process
         uses: anthropics/claude-code-base-action@beta
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         with:
@@ -326,6 +333,49 @@ jobs:
             }
           max_turns: ${{ github.event.inputs.max_turns || '15' }}
           claude_env: ${{ steps.claude-config.outputs.claude_env }}
+      
+      - name: Handle Claude API Error
+        if: failure() && steps.claude-process.outcome == 'failure'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          echo "Claude API call failed. Checking for overload error..."
+          
+          # Check if it was an overload error (529)
+          if grep -q "overloaded_error" ${{ github.workspace }}/.github/workflows/claude-code-processor-best.yml.log 2>/dev/null || 
+             grep -q "API Error: 529" /tmp/claude_error.log 2>/dev/null; then
+            
+            echo "Detected API overload error. Creating retry message..."
+            
+            # Create a response file with retry instructions
+            cat > outputs/slack_response.txt << 'EOF'
+          :hourglass_flowing_sand: Claude is currently experiencing high demand (API overload).
+          
+          Your request has been saved as session `${{ github.event.inputs.session_id || github.run_id }}`.
+          
+          **Original request:** ${{ github.event.inputs.question }}
+          
+          Please try again in a few minutes by mentioning me with:
+          • `@claude continue session ${{ github.event.inputs.session_id || github.run_id }}`
+          • Or simply: `@claude continue`
+          
+          I'll resume exactly where we left off. Sorry for the inconvenience!
+          EOF
+            
+          else
+            # For other errors, create a generic error message
+            cat > outputs/slack_response.txt << 'EOF'
+          :warning: I encountered an error while processing your request.
+          
+          **Error details:** The Claude API returned an unexpected error.
+          
+          You can try again by:
+          • Mentioning me with the same request
+          • Or check the workflow logs for more details: [View logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          If the issue persists, please contact the administrator.
+          EOF
+          fi
       
       - name: Log turn allocation
         if: always()
