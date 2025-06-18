@@ -1,131 +1,155 @@
-# Turn Limit System
+# Turn Limit & Dynamic Timeout System
 
 ## Overview
 
-The Claude Code SDK automatically adjusts conversation turn limits based on task complexity. This ensures simple tasks complete quickly while complex tasks get sufficient resources.
+The Claude Slack Bot uses an intelligent system to allocate conversation turns and calculate timeouts based on task complexity. This ensures optimal resource usage and reliable task completion.
 
-## How It Works
+## Turn Allocation System
 
-### Base Allocation: 15 turns
-All tasks start with 15 turns, sufficient for simple queries like "what time is it?" or "explain this code".
+### Base Allocation
+- **Default**: 15 turns for simple queries
+- **Maximum**: 50 turns for complex tasks
 
-### Automatic Adjustments (Precise Patterns)
+### Complexity Markers
 
-| Pattern | Additional Turns | Matches | Does NOT Match |
-|---------|-----------------|---------|----------------|
-| **GitHub MCP** | +10 | When GitHub tools loaded | - |
-| **GitHub Complex** | +10 | `create a PR`, `open an issue`, `merge pull request`, `push to branch` | `create a note`, `open file` |
-| **Major Work** | +10 | `implement new feature`, `build API`, `migrate to X`, `redesign system` | `implement fix`, `build docs` |
-| **Refactoring** | +10 | `refactor the system/API/codebase` | `refactor` alone |
-| **Debugging** | +5 | `fix the bug/error/crash`, `debug the issue` | `fix formatting`, `fix typo` |
-| **Multi-step** | +5 | `first X then Y`, `step 1... step 2` | - |
-| **Deep Analysis** | +5 | `analyze entire codebase/system` | `analyze this`, `analyze function` |
-| **Thread >5 msgs** | +5 | Continuing conversation | - |
-| **Thread >15 msgs** | +5 more | Long conversation (total +10) | - |
+The system analyzes your request for specific patterns to determine complexity:
 
-**Maximum cap: 50 turns**
+#### 1. **GitHub Operations** (+10 turns)
+- Triggered when GitHub MCP tools are loaded
+- Examples: "analyze repository", "create PR", "review code"
+
+#### 2. **Multi-Step Tasks** (+5 turns)
+- Pattern: `first...then`, `step 1...step 2`
+- Examples: "First analyze the code, then create a fix"
+
+#### 3. **Refactoring** (+10 turns)
+- Pattern: `refactor the entire system/codebase/architecture`
+- Major architectural changes
+
+#### 4. **GitHub Complex Operations** (+10 turns)
+- Pattern: `create/open/submit/merge PR/issue`
+- Examples: "create a pull request", "open an issue"
+
+#### 5. **Major Development** (+10 turns)
+- Pattern: `implement/build/develop feature/system/api`
+- Examples: "implement new authentication system"
+
+#### 6. **Debugging** (+5 turns)
+- Pattern: `debug/fix/resolve bug/issue/error`
+- Examples: "fix the login bug"
+
+#### 7. **Comprehensive Analysis** (+5 turns)
+- Pattern: `analyze entire codebase/system`
+- Full system analysis
+
+#### 8. **Contextual References** (+15 turns)
+- Short messages like "do it", "continue" in threads
+- Refers to complex tasks mentioned earlier
+
+#### 9. **Thread Context**
+- +5 turns for threads with 5+ messages
+- +10 turns total for threads with 15+ messages
+
+## Dynamic Timeout Calculation
+
+### Base Formula
+```
+Base Timeout = (turns × 30 seconds) + 5 minute buffer
+```
+
+### Task Multipliers
+
+1. **GitHub Write Operations**: 1.5x
+   - Creating PRs, pushing code, updating issues
+
+2. **File Operations**: 1 + (0.2 × estimated_files)
+   - More files = more time needed
+
+3. **Deep Analysis**: 1.3x
+   - Comprehensive code reviews, security audits
+
+4. **MCP Tool Usage**: 1 + (0.1 × tool_count)
+   - Each additional tool adds complexity
+
+### Maximum Timeout
+- **Cap**: 45 minutes (leaving 15-minute buffer for GitHub's 60-minute limit)
 
 ## Examples
 
-### Simple Queries (15 turns)
+### Simple Query
 ```
-@claude What time is it?
-@claude Explain this function
-@claude Add a comment here
-@claude Find a test file
+@claude explain this function
 ```
-These get only base turns - no patterns match.
+- **Turns**: 15
+- **Timeout**: 10 minutes
 
-### Bug Fix (20 turns)
+### Bug Fix
 ```
-@claude Fix the bug in auth.js
-@claude Debug the error in login
+@claude fix the authentication error in login.js
 ```
-- Base: 15
-- Debugging (bug/error): +5
-- Total: 20 turns
+- **Turns**: 20 (+5 for debugging)
+- **Timeout**: 15 minutes
 
-### GitHub PR Creation (35 turns)
+### Feature Implementation
 ```
-@claude Create a PR with these changes
-@claude Open an issue about this bug
+@claude implement user profile feature with avatar upload
 ```
-- Base: 15
-- GitHub MCP: +10
-- GitHub Complex: +10
-- Total: 35 turns
+- **Turns**: 25 (+10 for major work)
+- **Timeout**: 20 minutes
 
-### Major Development (35 turns)
+### Complex Multi-Step with GitHub
 ```
-@claude Implement new authentication feature
-@claude Build the payment API
+@claude analyze the entire codebase, fix security issues, and create a PR
 ```
-- Base: 15
-- GitHub MCP: +10 (if repo context)
-- Major Work: +10
-- Total: 35 turns
+- **Turns**: 45 (+10 GitHub, +5 analysis, +10 GitHub complex, +5 multi-step)
+- **Timeout**: 35-40 minutes (with multipliers)
 
-### Complex Multi-Step (45+ turns)
+### Thread Continuation
 ```
-@claude First analyze the system, then refactor the API and create a PR
+[Previous messages discussing complex refactoring]
+User: do it
 ```
-- Base: 15
-- GitHub MCP: +10
-- Multi-step: +5
-- Refactoring: +10
-- GitHub Complex: +10
-- Total: 50 turns (capped)
+- **Turns**: 40+ (+15 for contextual reference, +thread bonuses)
+- **Timeout**: 30-35 minutes
 
-## Key Design Principles
+## Session Management
 
-1. **Precise Patterns**: Only specific phrases trigger extra turns
-   - ✅ "fix the bug" → Debugging (+5)
-   - ❌ "fix the typo" → No match
+### Automatic Continuation
+When a task exceeds time limits:
 
-2. **Context-Aware**: Patterns require context
-   - ✅ "refactor the system" → Refactoring (+10)
-   - ❌ "refactor" alone → No match
+1. **Progress Saved**: Checkpoint created with completed/pending work
+2. **Clear Message**: Bot explains what was done and what remains
+3. **Easy Resume**: User can simply say "continue" to resume
 
-3. **GitHub-Focused**: PR/issue operations are complex
-   - Creating PRs involves: create branch → commit → push → PR API
-   - Each operation uses multiple MCP tools
-
-4. **No False Positives**: Common words don't trigger extras
-   - "find a test", "add to list", "review docs" → Base 15 turns
-
-## Technical Implementation
-
-Located in `src/services/eventHandler.ts`:
-
-```typescript
-private calculateTurns(text: string, mcpTools: string[], threadLength: number): number
-```
-
-The function:
-1. Starts with base 15 turns
-2. Adds 10 if GitHub MCP is loaded
-3. Tests against precise regex patterns
-4. Adds turns for matching patterns
-5. Considers thread length
-6. Caps at 50 maximum
-7. Logs all decisions
-
-## Monitoring
-
-Every calculation is logged:
+### Checkpoint Contents
 ```json
 {
-  "message": "Turn allocation calculated",
-  "base": 15,
-  "calculated": 35,
-  "hasGitHub": true,
-  "threadLength": 3,
-  "patternsMatched": ["githubComplex", "refactoring"]
+  "phase": "implementation",
+  "progress_percentage": 75,
+  "completed": {
+    "files_created": ["auth.js", "profile.js"],
+    "analysis_complete": true
+  },
+  "pending": {
+    "steps": ["Create PR", "Add tests"],
+    "estimated_turns": 10
+  }
 }
 ```
 
-Monitor these logs to:
-- Track which patterns match most often
-- Verify turn utilization
-- Identify potential adjustments
-- Ensure no false positives
+## Best Practices
+
+1. **Be Specific**: More detailed requests get better resource allocation
+2. **Use Threads**: Continuing in threads preserves context
+3. **Trust the System**: Don't worry about manual session management
+4. **"Continue" Works**: Simple continuation commands are recognized
+
+## Resource Monitoring
+
+The bot monitors resource usage and will:
+- At 70%: Start consolidating work
+- At 80%: Focus on critical items only
+- At 90%: Save all work immediately
+- At 95%: Emergency save with continuation instructions
+
+This ensures your work is never lost, even for the most complex tasks.

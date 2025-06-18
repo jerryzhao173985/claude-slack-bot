@@ -1,8 +1,19 @@
-import { Env, SlackEventPayload } from '../types/env';
+import { Env, SlackEventPayload, SlackMessage } from '../types/env';
 import { SlackClient } from './slackClient';
 import { GitHubDispatcher } from './githubDispatcher';
 import { Logger } from '../utils/logger';
 import { GitHubUtils } from '../utils/githubUtils';
+import * as crypto from 'crypto';
+
+// Task analysis for intelligent timeout calculation
+interface TaskAnalysis {
+  hasGitHubWrite: boolean;
+  estimatedFiles: number;
+  requiresDeepAnalysis: boolean;
+  mcpToolCount: number;
+  complexityScore: number;
+  taskPhases: string[];
+}
 
 export class EventHandler {
   private slackClient: SlackClient;
@@ -42,21 +53,37 @@ export class EventHandler {
       const thinkingIndicator = supportsThinking ? ' 🧠' : '';
       const modelDisplay = model ? ` (using ${modelName}${thinkingIndicator})` : '';
       
+      // Get thread context early to analyze task complexity
+      const threadContext = thread_ts ? await this.slackClient.getThreadContext(channel, thread_ts) : [];
+      
+      // Check for automatic continuation
+      const isAutoContinuation = this.shouldAutoContinue(text, threadContext);
+      
+      // Generate or extract session ID
+      let sessionId = this.extractSessionId(text);
+      if (!sessionId && (thread_ts || isAutoContinuation)) {
+        // Generate deterministic session ID for this thread
+        sessionId = this.generateSessionId(channel, thread_ts || ts);
+        this.logger.info('Generated session ID for thread', { sessionId, channel, threadTs: thread_ts });
+      }
+      
+      const sessionIndicator = sessionId ? ' (resuming session)' : '';
+      
       // Post placeholder message
       const placeholder = await this.slackClient.postMessage(
         channel,
-        `:thinking_face: Working on your request${modelDisplay}...`,
+        `:thinking_face: Working on your request${modelDisplay}${sessionIndicator}...`,
         thread_ts || ts
       );
 
-      // Get thread context if this is a threaded message
-      const context = thread_ts ? await this.slackClient.getThreadContext(channel, thread_ts) : [];
+      // Use already fetched thread context
+      const context = threadContext;
 
       // Extract GitHub context for enhanced repository handling
       const githubUsername = this.env.GITHUB_USERNAME || 'jerryzhao173985'; // Default to your username
       const githubContext = GitHubUtils.extractGitHubContext(text, githubUsername);
       
-      // Extract tools and question (model already extracted above)
+      // Extract tools and question (model and sessionId already extracted above)
       const tools = this.extractMCPTools(text);
       const question = this.extractQuestion(text);
       
@@ -65,7 +92,8 @@ export class EventHandler {
         originalText: text,
         cleanedQuestion: question,
         tools: tools,
-        hasGitHub: tools.includes('github')
+        hasGitHub: tools.includes('github'),
+        sessionId: sessionId || 'new-session'
       });
 
       // Log placeholder details for debugging
@@ -83,18 +111,31 @@ export class EventHandler {
       }
       
       // Add explicit instruction for continuation requests
-      if (this.isContinuationRequest(text) && context.length > 0) {
+      if ((this.isContinuationRequest(text) || isAutoContinuation) && context.length > 0) {
         systemPrompt += `\n\nCRITICAL: The user's message "${question}" is a continuation request. You MUST review the thread history above to identify and complete the previously discussed task. Do not ask for clarification - the task is clear from the context.`;
-        this.logger.info('Detected continuation request', { question, threadLength: context.length });
+        systemPrompt += `\n\nSESSION INFO: This is a continuation of session ${sessionId}. Check for any saved checkpoints and resume from where the previous run left off.`;
+        this.logger.info('Detected continuation request', { 
+          question, 
+          threadLength: context.length,
+          isAutoContinuation,
+          sessionId 
+        });
       }
 
+      // Analyze task complexity
+      const taskAnalysis = this.analyzeTask(question, tools, context);
+      
       // Calculate optimal turns based on task complexity
       const contextLength = context ? context.length : 0;
       const calculatedTurns = this.calculateTurns(question, tools, contextLength);
       
+      // Calculate dynamic timeout based on task analysis
+      const timeoutMinutes = this.calculateDynamicTimeout(calculatedTurns, taskAnalysis);
+      
       // Log turn calculation for debugging
       this.logger.info('Turn calculation result', {
         calculatedTurns,
+        timeoutMinutes,
         contextLength,
         tools: tools.join(',')
       });
@@ -109,7 +150,10 @@ export class EventHandler {
         system_prompt: systemPrompt,
         model,
         repository_context: githubContext ? JSON.stringify(githubContext) : undefined,
-        max_turns: calculatedTurns.toString()
+        max_turns: calculatedTurns.toString(),
+        timeout_minutes: timeoutMinutes.toString(),
+        session_id: sessionId,
+        enable_checkpointing: 'true'
       });
 
       const duration = Date.now() - startTime;
@@ -163,6 +207,8 @@ export class EventHandler {
       // Remove model presets
       .replace(/\b(advanced|fast|balanced|smart|quick|deep)\s+mode\b/gi, '')
       .replace(/\/mode\s+[a-z]+/gi, '')
+      // Remove session IDs from continuation requests
+      .replace(/\b(continue|resume)\s+session\s+[a-f0-9-]+/gi, 'continue')
       .trim();
   }
 
@@ -299,6 +345,141 @@ export class EventHandler {
     }
 
     return null;
+  }
+
+  private generateSessionId(channel: string, threadTs: string): string {
+    // Deterministic session ID based on thread and date
+    const date = new Date().toISOString().split('T')[0];
+    const data = `${channel}-${threadTs}-${date}`;
+    // Use first 12 chars of hex for readability
+    return crypto.createHash('sha256').update(data).digest('hex').substring(0, 12);
+  }
+
+  private shouldAutoContinue(message: string, threadContext: SlackMessage[]): boolean {
+    const continuationPhrases = ['continue', 'keep going', 'finish', 'complete', 'resume', 'go ahead', 'do it'];
+    const messageLower = message.toLowerCase().trim();
+    
+    // Check if it's a short continuation message
+    if (messageLower.length < 20 && continuationPhrases.some(phrase => messageLower.includes(phrase))) {
+      // Look for recent bot messages mentioning continuation
+      const recentBotMessages = threadContext.slice(-5).filter(m => m.isBot);
+      return recentBotMessages.some(m => 
+        m.text.includes('continue') || 
+        m.text.includes('remaining') || 
+        m.text.includes('incomplete') ||
+        m.text.includes('Made significant progress')
+      );
+    }
+    
+    return false;
+  }
+
+  private extractSessionId(text: string): string | undefined {
+    // Look for explicit session continuation patterns
+    const patterns = [
+      /continue\s+session\s+([a-f0-9-]+)/i,
+      /resume\s+session\s+([a-f0-9-]+)/i,
+      /session\s+([a-f0-9-]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const sessionId = match[1];
+        this.logger.info('Session ID extracted from message', { sessionId });
+        return sessionId;
+      }
+    }
+
+    return undefined;
+  }
+
+  private analyzeTask(text: string, mcpTools: string[], threadContext: SlackMessage[]): TaskAnalysis {
+    const analysis: TaskAnalysis = {
+      hasGitHubWrite: false,
+      estimatedFiles: 0,
+      requiresDeepAnalysis: false,
+      mcpToolCount: mcpTools.length,
+      complexityScore: 0,
+      taskPhases: []
+    };
+
+    // Check for GitHub write operations
+    const githubWritePatterns = /\b(create|update|modify|push|commit|merge)\s*(a\s+)?\s*(pr|pull request|branch|file|issue)/i;
+    if (githubWritePatterns.test(text) && mcpTools.includes('github')) {
+      analysis.hasGitHubWrite = true;
+      analysis.complexityScore += 20;
+      analysis.taskPhases.push('github-operations');
+    }
+
+    // Estimate file operations
+    const filePatterns = /\b(file|component|module|class|function|api|endpoint|service)s?\b/gi;
+    const fileMatches = text.match(filePatterns) || [];
+    analysis.estimatedFiles = Math.min(fileMatches.length, 10);
+    analysis.complexityScore += analysis.estimatedFiles * 2;
+
+    // Check for deep analysis requirements
+    const analysisPatterns = /\b(analyze|review|audit|investigate|examine)\s+(entire|whole|complete|all|comprehensive)/i;
+    if (analysisPatterns.test(text)) {
+      analysis.requiresDeepAnalysis = true;
+      analysis.complexityScore += 15;
+      analysis.taskPhases.push('analysis');
+    }
+
+    // Check for implementation phases
+    if (/\b(implement|build|create|develop)/i.test(text)) {
+      analysis.taskPhases.push('implementation');
+      analysis.complexityScore += 10;
+    }
+
+    // Check for testing requirements
+    if (/\b(test|verify|validate|check)/i.test(text)) {
+      analysis.taskPhases.push('testing');
+      analysis.complexityScore += 5;
+    }
+
+    // Context complexity
+    if (threadContext.length > 10) {
+      analysis.complexityScore += 10;
+    }
+
+    this.logger.info('Task analysis completed', { analysis });
+    return analysis;
+  }
+
+  private calculateDynamicTimeout(turns: number, taskAnalysis: TaskAnalysis): number {
+    // Base formula: 30 seconds per turn + buffer
+    const baseSeconds = turns * 30;
+    const bufferMinutes = 5;
+    
+    // Task-specific multipliers
+    const multipliers = {
+      github_operations: taskAnalysis.hasGitHubWrite ? 1.5 : 1.0,
+      file_operations: 1 + (taskAnalysis.estimatedFiles * 0.2),
+      analysis_depth: taskAnalysis.requiresDeepAnalysis ? 1.3 : 1.0,
+      mcp_operations: 1 + (taskAnalysis.mcpToolCount * 0.1)
+    };
+    
+    // Calculate total multiplier (avoid double counting)
+    const totalMultiplier = Object.values(multipliers).reduce((acc, mult) => acc * mult, 1);
+    
+    // Calculate timeout in minutes
+    const calculatedMinutes = Math.ceil((baseSeconds / 60) * totalMultiplier) + bufferMinutes;
+    
+    // Smart capping: 45 min for workflow, leaving 15 min buffer for GitHub's 60 min limit
+    const finalTimeout = Math.min(calculatedMinutes, 45);
+    
+    this.logger.info('Dynamic timeout calculated', {
+      turns,
+      baseSeconds,
+      multipliers,
+      totalMultiplier,
+      calculatedMinutes,
+      finalTimeout,
+      complexityScore: taskAnalysis.complexityScore
+    });
+    
+    return finalTimeout;
   }
 
   private calculateTurns(text: string, mcpTools: string[], threadLength: number): number {

@@ -49,4 +49,7 @@ export interface GitHubWorkflowInputs {
   model?: string;
   repository_context?: string;
   max_turns?: string;
+  timeout_minutes?: string;
+  session_id?: string;
+  enable_checkpointing?: string;
 }

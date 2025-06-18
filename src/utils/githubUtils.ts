@@ -15,7 +15,7 @@ export class GitHubUtils {
     // Enhanced patterns to match GitHub repositories with additional context
     const patterns = [
       // Full GitHub URLs with branch and path
-      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^\/\s]+)(?:\/(.+))?)?/i,
+      /(?:https?:\/\/)?github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^/\s]+)(?:\/(.+))?)?/i,
       // SSH URLs
       /git@github\.com:([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+?)(?:\.git)?/i,
       // Simple owner/repo format
@@ -143,7 +143,6 @@ export class GitHubUtils {
    */
   static extractMultipleRepositories(text: string, githubUsername?: string): GitHubContext[] {
     const contexts: GitHubContext[] = [];
-    const words = text.split(/\s+/);
     
     // Look for repository patterns in the text
     const repoPattern = /([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)/g;

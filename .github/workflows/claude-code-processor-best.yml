@@ -41,11 +41,25 @@ on:
         required: false
         type: string
         default: "15"
+      timeout_minutes:
+        description: "Workflow timeout in minutes (dynamically calculated)"
+        required: false
+        type: string
+        default: "10"
+      session_id:
+        description: "Session ID to resume a previous conversation"
+        required: false
+        type: string
+      enable_checkpointing:
+        description: "Enable progress checkpointing for long tasks"
+        required: false
+        type: string
+        default: "true"
 
 jobs:
   process-request:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '10') }}
     
     steps:
       - name: Checkout repository
@@ -54,7 +68,17 @@ jobs:
       - name: Setup environment
         run: |
           mkdir -p outputs
+          mkdir -p outputs/checkpoints
           mkdir -p ~/.local/bin
+          
+          # Create a file to indicate Claude is running
+          touch .claude_running
+          
+          # Create session info file if resuming
+          if [ -n "${{ github.event.inputs.session_id }}" ]; then
+            echo "Resuming session: ${{ github.event.inputs.session_id }}"
+            echo "${{ github.event.inputs.session_id }}" > outputs/session_id.txt
+          fi
       
       - name: Install GitHub MCP Server
         run: |
@@ -62,6 +86,50 @@ jobs:
           curl -L https://github.com/github/github-mcp-server/releases/download/v0.5.0/github-mcp-server_Linux_x86_64.tar.gz | tar xz -C ~/.local/bin
           chmod +x ~/.local/bin/github-mcp-server
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Download previous checkpoint (if continuing)
+        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: checkpoint-${{ github.event.inputs.session_id }}
+          path: outputs/checkpoints/
+      
+      - name: Start Progress Monitor
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          # Background process to update Slack with progress
+          # Use setsid to create a new process group for easier cleanup
+          setsid bash -c '
+            while [ -f ".claude_running" ]; do
+              if [ -f "outputs/checkpoints/progress.json" ]; then
+                PROGRESS=$(jq -r '.progress_percentage // 0' outputs/checkpoints/progress.json 2>/dev/null || echo 0)
+                PHASE=$(jq -r '.phase // "initializing"' outputs/checkpoints/progress.json 2>/dev/null || echo "initializing")
+                
+                # Create progress bar
+                FILLED=$((PROGRESS / 5))
+                EMPTY=$((20 - FILLED))
+                BAR=""
+                for i in $(seq 1 $FILLED); do BAR="${BAR}█"; done
+                for i in $(seq 1 $EMPTY); do BAR="${BAR}░"; done
+                
+                # Update Slack message with progress
+                curl -s -X POST https://slack.com/api/chat.update \
+                  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "{
+                    \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                    \"ts\": \"${{ github.event.inputs.slack_ts }}\",
+                    \"text\": \"🤔 Working on your request... [${PROGRESS}%] - ${PHASE}\\n${BAR}\"
+                  }" > /dev/null 2>&1
+              fi
+              sleep 30
+            done
+          ' &
+          MONITOR_PID=$!
+          echo "Progress monitor started with PID $MONITOR_PID"
+          echo $MONITOR_PID > .monitor_pid
       
       - name: Configure Claude settings
         id: claude-config
@@ -101,7 +169,48 @@ jobs:
             
             ## Instructions
             
-            ### 1. Process the Request
+            ### 0. Session Management
+            - Session ID: ${{ github.event.inputs.session_id || 'new-session' }}
+            - If this is a resumed session, check for checkpoint files in `outputs/checkpoints/`
+            - Continue from the last checkpoint if available
+            
+            ### 1. Smart Checkpointing Rules
+            Save checkpoint at these critical times:
+            - After completing major phases (analysis, implementation, testing)
+            - Before risky operations (file updates, PR creation)
+            - When reaching 70% of allocated turns or time
+            - After successful multi-file operations
+            
+            Checkpoint format (save to `outputs/checkpoints/progress.json`):
+            ```json
+            {
+              "version": "1.0",
+              "workflow_run_id": "${{ github.run_id }}",
+              "workflow_run_number": "${{ github.run_number }}",
+              "timestamp": "2025-01-01T00:00:00Z",
+              "session_id": "${{ github.event.inputs.session_id || github.run_id }}",
+              "phase": "analysis|implementation|testing|finalization",
+              "progress_percentage": 25,
+              "completed": {
+                "files_created": ["file1.ts", "file2.ts"],
+                "files_modified": ["file3.ts"],
+                "analysis_complete": true,
+                "pr_branch": "feature/xyz-12345"
+              },
+              "pending": {
+                "steps": ["Create PR", "Add tests"],
+                "estimated_turns": 10
+              },
+              "context": {
+                "original_request": "${{ github.event.inputs.question }}",
+                "key_findings": "...",
+                "decisions_made": "..."
+              }
+            }
+            ```
+            
+            ### 2. Process the Request
+            - If resuming session, load checkpoint from outputs/checkpoints/progress.json
             - Analyze the user's question thoroughly
             - CRITICAL: If the question is short (e.g., "do it", "solve this", "continue"), check the thread context to understand what task to complete
             - Look for unfinished tasks or requests in the thread history and complete them
@@ -110,20 +219,31 @@ jobs:
             - Repository context is provided in: ${{ github.event.inputs.repository_context }}
             - When creating branches, use unique names with timestamps: feature/[description]-[timestamp]
             - If branch creation fails due to "already exists", use a different name or timestamp
-            - IMPORTANT: Save progress to file BEFORE attempting complex GitHub operations
+            - Save checkpoint BEFORE attempting complex GitHub operations
             
-            ### 2. Save to Notion (Optional)
+            ### 3. Save to Notion (Optional)
             - If Notion MCP is available, try to save Q&A to Notion
             - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
             - If found, create a sub-page with the conversation
             
-            ### 3. CRITICAL: Check Thread Context First
+            ### 4. Resource Management
+            Monitor your resource usage carefully:
+            - Total turns available: ${{ github.event.inputs.max_turns || '15' }}
+            - At 70% of turns: Start consolidating work and create comprehensive checkpoint
+            - At 80%: Focus only on critical items, prepare for continuation
+            - At 90%: Save all work immediately with detailed next steps
+            - At 95%: Emergency save with exact continuation instructions
+                ```
+            - If you're running low on turns (less than 5 remaining), immediately save a checkpoint
+            - This allows the task to be resumed if it times out or runs out of turns
+            
+            ### 4. CRITICAL: Check Thread Context First
             - If the message is short like "solve this", "do it", "continue", check the system prompt for thread context
             - The thread history shows what task was previously discussed
             - Complete the task mentioned in the thread without asking for clarification
             - Example: If thread mentions "create a PR", then "solve this" means create that PR
             
-            ### 4. Save Response to File (REQUIRED)
+            ### 5. Save Response to File (REQUIRED)
             - IMPORTANT: You MUST save a response before running out of turns
             - Monitor your progress - if approaching turn limit, wrap up and save
             - Save your response to: `outputs/slack_response.txt`
@@ -131,7 +251,10 @@ jobs:
             - Format your response appropriately for Slack (use markdown where helpful)
             - Do NOT include any metadata or instructions in the response
             - Just save the clean response text that should be shown to the user
-            - If you couldn't complete everything, explain what you did and what remains
+            - If you couldn't complete everything:
+              - Save a final checkpoint with exact next steps
+              - Include in response: "✅ Made significant progress! I've completed [X]. To finish [Y], just say 'continue'."
+              - List what was accomplished and what remains
             
             ### Important Notes
             - The Slack MCP server cannot update messages, only post new ones
@@ -139,6 +262,10 @@ jobs:
             - This provides a cleaner experience than posting a new reply
             - Make sure to save the response BEFORE attempting complex operations
             - If running low on turns, prioritize saving a partial response over completing everything
+            - If task wasn't completed:
+              - The system will automatically suggest continuation
+              - User can simply say "continue" to resume
+              - Session ID is managed automatically based on thread
           
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_model: ${{ github.event.inputs.model }}
@@ -216,6 +343,27 @@ jobs:
           echo "Max Turns: ${{ github.event.inputs.max_turns || '15' }}"
           echo "======================="
       
+      - name: Check for session continuation
+        if: always()
+        id: check-session
+        run: |
+          # Check if this task needs continuation
+          if [ -f "outputs/checkpoints/progress.json" ] && [ -f "outputs/session_id.txt" ]; then
+            SESSION_ID=$(cat outputs/session_id.txt)
+            echo "session_needs_continuation=true" >> $GITHUB_OUTPUT
+            echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
+            
+            # Extract pending steps for the response
+            PENDING_STEPS=$(jq -r '.pending_steps[]' outputs/checkpoints/progress.json 2>/dev/null | head -5)
+            if [ -n "$PENDING_STEPS" ]; then
+              echo "pending_steps<<EOF" >> $GITHUB_OUTPUT
+              echo "$PENDING_STEPS" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "session_needs_continuation=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Update Slack Message
         if: always()
         env:
@@ -264,6 +412,25 @@ jobs:
                 echo "Failed to post reply: $REPLY_ERROR"
               fi
             fi
+            
+            # Add continuation hint if session needs to continue
+            if [ "${{ steps.check-session.outputs.session_needs_continuation }}" = "true" ]; then
+              SESSION_ID="${{ steps.check-session.outputs.session_id }}"
+              PENDING_STEPS="${{ steps.check-session.outputs.pending_steps }}"
+              
+              if [ -n "$PENDING_STEPS" ]; then
+                CONTINUATION_MSG=":information_source: Task partially completed. To continue with remaining steps, mention me with: \`continue session $SESSION_ID\`\n\nPending steps:\n$PENDING_STEPS"
+                
+                curl -X POST https://slack.com/api/chat.postMessage \
+                  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "{
+                    \"channel\": \"${{ github.event.inputs.slack_channel }}\",
+                    \"thread_ts\": \"${{ github.event.inputs.slack_thread_ts || github.event.inputs.slack_ts }}\",
+                    \"text\": \"$CONTINUATION_MSG\"
+                  }"
+              fi
+            fi
           else
             echo "No response file found, posting error message..."
             
@@ -278,3 +445,50 @@ jobs:
                 \"text\": \"$ERROR_MESSAGE\"
               }"
           fi
+      
+      - name: Stop Progress Monitor
+        if: always()
+        run: |
+          # Remove the running indicator
+          rm -f .claude_running
+          
+          # Kill the progress monitor if still running
+          if [ -f ".monitor_pid" ]; then
+            MONITOR_PID=$(cat .monitor_pid)
+            # Kill the process group to ensure all child processes are terminated
+            kill -TERM -$MONITOR_PID 2>/dev/null || true
+            sleep 1
+            kill -KILL -$MONITOR_PID 2>/dev/null || true
+            rm -f .monitor_pid
+          fi
+      
+      - name: Upload checkpoint artifacts
+        if: always() && github.event.inputs.enable_checkpointing == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-${{ github.event.inputs.session_id || github.run_id }}
+          path: outputs/checkpoints/
+          retention-days: 7
+          if-no-files-found: ignore
+      
+      - name: Create continuation workflow (if needed)
+        if: steps.check-session.outputs.session_needs_continuation == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const sessionId = '${{ steps.check-session.outputs.session_id }}';
+            console.log(`Task needs continuation. Session ID: ${sessionId}`);
+            console.log('User can continue by saying "continue" in the Slack thread.');
+            
+            // Log the continuation info for debugging
+            const checkpointPath = 'outputs/checkpoints/progress.json';
+            const fs = require('fs');
+            if (fs.existsSync(checkpointPath)) {
+              const checkpoint = JSON.parse(fs.readFileSync(checkpointPath, 'utf8'));
+              console.log('Checkpoint summary:', {
+                phase: checkpoint.phase,
+                progress: checkpoint.progress_percentage,
+                pendingSteps: checkpoint.pending?.steps?.length || 0
+              });
+            }

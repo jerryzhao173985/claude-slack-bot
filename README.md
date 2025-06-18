@@ -101,6 +101,45 @@ Automatically allocates 15-50 conversation turns based on task complexity:
 
 See [Turn Limit Documentation](docs/turn-limit-system.md) for details.
 
+### ⏱️ Dynamic Timeout & Session Management
+Intelligent task handling with automatic continuation:
+
+**Dynamic Timeout Calculation**:
+- Base: 10 minutes for simple tasks
+- Scales up to 45 minutes for complex operations
+- Factors: GitHub operations, file count, analysis depth, MCP usage
+
+**Automatic Session Management**:
+```slack
+@claude analyze entire codebase and create security audit
+Claude: 🤔 Working on your request... [75%] - implementation phase
+        ████████████████░░░░
+        ✅ Made significant progress! I've completed the analysis. 
+        To finish the security fixes, just say 'continue'.
+
+User: continue
+Claude: 🤔 Working on your request... (resuming session)
+        [Continues from checkpoint with all context preserved]
+```
+
+**Smart Checkpointing**:
+- Saves progress at critical phases
+- Preserves state before risky operations
+- Automatic recovery on timeout
+- No manual session tracking needed
+
+### 📊 Real-time Progress Monitoring
+Live updates during complex tasks:
+```
+🤔 Working on your request... [40%] - analysis phase
+████████░░░░░░░░░░░░
+```
+
+Progress updates every 30 seconds showing:
+- Current completion percentage
+- Active phase (analysis/implementation/testing/finalization)
+- Visual progress bar
+
 ## 📚 Documentation
 
 ### 🚀 Getting Started
