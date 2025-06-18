@@ -36,6 +36,10 @@ When Claude successfully processes a request, the following metadata is appended
   - Example: `bb8a8b86-b75a`
   - Used for continuation and reference
 
+- **🤖 Model**: The Claude model used for processing
+  - Example: `claude-sonnet-4-20250514`
+  - Helps track which model was used for cost/performance analysis
+
 ## Example Output
 
 Here's how a typical response looks with metadata:
@@ -55,6 +59,7 @@ I've analyzed the codebase and implemented comprehensive UI improvements...
 • 🎯 Tokens: 1,361,467 in / 25,840 out (1,387,307 total)
 • 💾 Cache: 101,326 tokens created
 • 🏷️ Session: `bb8a8b86-b75a`
+• 🤖 Model: claude-sonnet-4-20250514
 ```
 
 ## Implementation Details

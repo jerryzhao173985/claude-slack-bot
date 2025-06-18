@@ -336,6 +336,7 @@ jobs:
       
       - name: Extract and Append Metadata
         if: steps.claude-process.outcome == 'success'
+        continue-on-error: true
         run: |
           echo "Extracting metadata from Claude execution..."
           
@@ -387,10 +388,10 @@ jobs:
                 echo "$1" | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta'
               }
               
-              INPUT_TOKENS_FORMATTED=$(format_number $INPUT_TOKENS)
-              OUTPUT_TOKENS_FORMATTED=$(format_number $OUTPUT_TOKENS)
-              TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
-              TOTAL_TOKENS_FORMATTED=$(format_number $TOTAL_TOKENS)
+              INPUT_TOKENS_FORMATTED=$(format_number "$INPUT_TOKENS")
+              OUTPUT_TOKENS_FORMATTED=$(format_number "$OUTPUT_TOKENS")
+              TOTAL_TOKENS=$((${INPUT_TOKENS:-0} + ${OUTPUT_TOKENS:-0}))
+              TOTAL_TOKENS_FORMATTED=$(format_number "$TOTAL_TOKENS")
               
               # Append metadata to response file
               if [ -f "outputs/slack_response.txt" ]; then
@@ -401,11 +402,12 @@ jobs:
                 echo "• ⏱️ Duration: ${DURATION_MIN}m ${DURATION_REMAINING_SEC}s (API: ${API_DURATION_MIN}m ${API_DURATION_REMAINING_SEC}s)" >> outputs/slack_response.txt
                 echo "• 🔄 Turns: $NUM_TURNS/${{ github.event.inputs.max_turns || '15' }}" >> outputs/slack_response.txt
                 echo "• 🎯 Tokens: ${INPUT_TOKENS_FORMATTED} in / ${OUTPUT_TOKENS_FORMATTED} out (${TOTAL_TOKENS_FORMATTED} total)" >> outputs/slack_response.txt
-                if [ "$CACHE_TOKENS" -gt 0 ]; then
-                  CACHE_TOKENS_FORMATTED=$(format_number $CACHE_TOKENS)
+                if [ -n "$CACHE_TOKENS" ] && [ "$CACHE_TOKENS" -gt 0 ] 2>/dev/null; then
+                  CACHE_TOKENS_FORMATTED=$(format_number "$CACHE_TOKENS")
                   echo "• 💾 Cache: ${CACHE_TOKENS_FORMATTED} tokens created" >> outputs/slack_response.txt
                 fi
                 echo "• 🏷️ Session: \`$SESSION_ID\`" >> outputs/slack_response.txt
+                echo "• 🤖 Model: ${{ github.event.inputs.model || 'claude-sonnet-4-20250514' }}" >> outputs/slack_response.txt
                 
                 echo "Metadata appended to response file"
               else
