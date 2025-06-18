@@ -5,8 +5,9 @@
 The GitHub Actions workflow is timing out after 10 minutes (exit code 124) when Claude attempts to use the GitHub MCP server's `create_or_update_file` method. The root cause is a combination of:
 
 1. **SHA Requirement**: GitHub API requires the current file's SHA when updating existing files
-2. **MCP Server Limitation**: The `create_or_update_file` method doesn't handle missing SHA gracefully
-3. **Hanging Behavior**: Instead of failing quickly with an error, the operation hangs until the workflow timeout
+2. **Error Handling Issue**: When SHA is missing, the GitHub API returns an error, but the MCP server/client doesn't propagate it properly
+3. **MCP Communication Hang**: The MCP client waits indefinitely for a response that never comes
+4. **Workflow Timeout**: After 10 minutes, GitHub Actions kills the workflow (exit code 124)
 
 ## The Problem Chain
 
@@ -45,9 +46,25 @@ Based on research and analysis:
    - When MCP operation hangs, workflow continues waiting
    - After 10 minutes, workflow is killed with SIGTERM (exit code 124)
 
+## The Real Solution
+
+### Best Practice: Use the Right Tool for the Job
+
+1. **For NEW files**: `create_or_update_file` works fine (no SHA needed)
+2. **For EXISTING files**: Two options:
+   - **Option A**: Use `push_files` (recommended - handles everything automatically)
+   - **Option B**: Fetch SHA first, then use `create_or_update_file` with SHA parameter
+
+### Why push_files is Better
+
+- Uses Git's tree API instead of individual file API
+- Handles multiple files in one atomic commit
+- Automatically manages SHAs internally
+- More efficient for batch operations
+
 ## Immediate Solutions
 
-### 1. Avoid create_or_update_file for Existing Files
+### 1. Avoid create_or_update_file for Existing Files Without SHA
 ```yaml
 # In the workflow prompt
 When updating existing files in GitHub repositories:

@@ -149,13 +149,22 @@ jobs:
             ### CRITICAL: GitHub File Update Guidelines
             To prevent 10-minute timeouts when updating GitHub files:
             
-            1. **For NEW files only**: Use `mcp__github__create_or_update_file`
-            2. **For EXISTING files**: 
-               - Use `mcp__github__push_files` (recommended - handles SHA automatically)
-               - Or use Bash with git commands
-               - NEVER use `create_or_update_file` on existing files
+            1. **Decision Rule**: 
+               - NEW file (doesn't exist yet) → `mcp__github__create_or_update_file` ✅
+               - EXISTING file (already in repo) → `mcp__github__push_files` ✅
+               - Multiple files → Always `mcp__github__push_files` ✅
+               - When unsure → Use `mcp__github__push_files` (works for both) ✅
             
-            3. **Why**: `create_or_update_file` will hang for 10 minutes on existing files due to missing SHA parameter
+            2. **Why This Matters**:
+               - GitHub API REQUIRES current file SHA for updates
+               - `create_or_update_file` can't get SHA = hangs for 10 minutes
+               - `push_files` handles SHA automatically using Trees API
+            
+            3. **Common Tasks**:
+               - "Fix typo" → Use `push_files` (file exists)
+               - "Update config" → Use `push_files` (file exists)
+               - "Add new feature" → Check first, if new use `create_or_update_file`
+               - "Batch updates" → Always use `push_files`
             
             - Natural language commands to handle:
               - "create a PR" → Use `mcp__github__create_pull_request`

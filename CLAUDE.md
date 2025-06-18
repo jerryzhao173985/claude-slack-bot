@@ -2,6 +2,21 @@
 
 This project implements a Slack bot powered by Claude using the Model Context Protocol (MCP) for tool integration.
 
+## 🚨 CRITICAL: GitHub File Operations (Prevent SHA Timeouts)
+
+### Quick Reference - Which Tool to Use?
+
+| Scenario | Use This Tool | Why |
+|----------|--------------|-----|
+| Creating NEW file | `create_or_update_file` ✅ | No SHA needed for new files |
+| Updating EXISTING file | `push_files` ✅ | Handles SHA automatically |
+| Multiple files | `push_files` ✅ | Batch operation, handles all SHAs |
+| Unsure if file exists | `push_files` ✅ | Works for both new and existing |
+| Fix typo/bug | `push_files` ✅ | File already exists |
+| Add new feature file | Check first, then appropriate tool | Depends if file exists |
+
+**⚠️ NEVER use `create_or_update_file` on existing files - causes 10-minute timeout!**
+
 ## Architecture
 
 The bot uses a distributed architecture:
