@@ -424,18 +424,19 @@ jobs:
                - Then read them all in one tool response
             
             ### 1. Smart Checkpointing Rules
+            Use checkpoints as a structured work journal that records essential data and key decisions through process. 
+            Keep intent clear to ensure continuity and transparency, consistently capture defined data points in session. 
+            Apply judgment thoughtfully to decide when and how each checkpoint should be created.
             CRITICAL: You have ${{ github.event.inputs.timeout_minutes || '30' }} minutes total execution time.
-            Save checkpoint at these critical times:
+            You can save checkpoint at these critical times:
             - EVERY 5 MINUTES (set a mental timer)
             - EVERY 10-15 TURNS (not every 5 - too frequent)
-            - After completing major phases (analysis, implementation, testing)
-            - BEFORE starting any GitHub operations (not after)
-            - Before risky operations (file updates, PR creation)
-            - When reaching 50% of allocated time (save partial work)
-            - After successful multi-file operations
-            - IMMEDIATELY if you detect any complex operation ahead
+            - After completing major phases (analysis, implementation, testing, finalization)
+            - Before risky operations to enable recovery (file updates, PR creation)
             - When completing a task or major subtask
-            - **ALWAYS save a final checkpoint with 100% progress after completing ALL tasks and before exiting**
+            - ALWAYS save a final checkpoint with 100% progress after completing ALL tasks and before exiting
+
+            Following is an example format but you can extend on more additional fields with specific details as relevant, necessary and helpful:
             
             Checkpoint format (save to `outputs/checkpoints/progress.json`):
             ```json
@@ -487,7 +488,15 @@ jobs:
                 "implementation_details": "What was changed and why...",
                 "partial_work": "Description of any incomplete work",
                 "summary": "High-level summary of progress and accomplishments"
-              }
+              },
+              [additional fields],
+              "plan":{
+                {[plan executed along the process planning stages/ thinking process]},  
+              },
+              "code":{
+                {[necessary file/code change snippets and analysis]}
+              },
+              [other additional fields]
             }
             ```
             
@@ -521,7 +530,7 @@ jobs:
             - 76-90%: Testing and validation phase
             - 91-99%: PR creation, documentation phase
             - 100%: Only when PR is created and all tasks complete
-            - If main work is done but PR pending, use 85-90%
+            - Subject to dynamic adjustment per question and planned stages for specific session
             - **IMPORTANT: Always save a 100% checkpoint after completing all tasks, including PR creation**
             
             IMPORTANT: If approaching timeout, IMMEDIATELY:
@@ -566,10 +575,30 @@ jobs:
                - If YES or UNSURE → Use `push_files`
                - Only use `create_or_update_file` when 100% certain file is NEW
             
-            ### 3. Save to Notion (Optional)
+            ### 3. Save to Notion
             - If Notion MCP is available, try to save Q&A to Notion
             - Search for "Claude Code" page using `mcp__notionApi__API-post-search`
-            - If found, create a sub-page with the conversation
+            - If found, create a sub-page using `mcp__notionApi__API-post-page` with ALL content in the `children` array:
+              ```json
+              {
+                "parent": { "page_id": "<CLAUDE_CODE_PAGE_ID>" },
+                "properties": {
+                  "title": { "title": [{ "text": { "content": "<Clean title, max 50 chars>" } }] }
+                },
+                "children": [
+                  { "heading_1": { "rich_text": [{ "text": { "content": "<Title>" } }] } },
+                  { "heading_2": { "rich_text": [{ "text": { "content": "Question" } }] } },
+                  { "paragraph": { "rich_text": [{ "text": { "content": "${{ github.event.inputs.question }}" } }] } },
+                  { "heading_2": { "rich_text": [{ "text": { "content": "Answer" } }] } },
+                  { "paragraph": { "rich_text": [{ "text": { "content": "<Your complete response>" } }] } },
+                  { "heading_2": { "rich_text": [{ "text": { "content": "Metadata" } }] } },
+                  { "bulleted_list_item": { "rich_text": [{ "text": { "content": "Timestamp: $(date -u +\"%Y-%m-%d %H:%M:%S UTC\")" } }] } },
+                  { "bulleted_list_item": { "rich_text": [{ "text": { "content": "Channel: ${{ github.event.inputs.slack_channel }}" } }] } },
+                  { "bulleted_list_item": { "rich_text": [{ "text": { "content": "Model: ${{ github.event.inputs.model }}" } }] } }
+                ]
+              }
+              ```
+            - IMPORTANT: Include ALL content blocks in the `children` array when creating the page
             
             ### 4. Resource Management
             Monitor your resource usage carefully:
@@ -651,6 +680,12 @@ jobs:
             6. Save response to `outputs/slack_response.txt`
             7. **Save final checkpoint (100%) with all PR details**
             8. Exit
+
+            ### Completion Recognition
+            When you recognize that all requested tasks are complete:
+            1. Save your final response to `outputs/slack_response.txt`
+            2. Save a checkpoint that captures your complete accomplishments
+            3. Ensure progress_percentage reflects true completion (100% if all done)
             
             ### Important Notes
             - The Slack MCP server cannot update messages, only post new ones
