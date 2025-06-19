@@ -114,40 +114,75 @@ jobs:
         run: |
           # If primary download failed, try to find checkpoints by pattern
           echo "Attempting to find checkpoints for session: ${{ env.SESSION_ID }}"
+          echo "Thread TS: ${{ github.event.inputs.slack_thread_ts }}"
           
           # List all available artifacts
           gh api repos/${{ github.repository }}/actions/artifacts --paginate | \
-            jq -r '.artifacts[] | select(.name | startswith("checkpoint-")) | {name: .name, created_at: .created_at, expires_at: .expires_at}' | \
+            jq -r '.artifacts[] | select(.name | startswith("checkpoint-")) | {name: .name, created_at: .created_at, expires_at: .expires_at, id: .id}' | \
             jq -s '.' > available_checkpoints.json
           
           if [ -s available_checkpoints.json ]; then
             echo "Available checkpoints:"
             cat available_checkpoints.json | jq -r '.[] | "\(.name) (created: \(.created_at), expires: \(.expires_at))"'
             
-            # Extract just the names for matching
-            cat available_checkpoints.json | jq -r '.[].name' > available_checkpoints.txt
-            
-            # Try to find a matching checkpoint
+            # Strategy 1: Try exact match first
             PATTERN="${{ env.SESSION_ID }}"
-            MATCHING_CHECKPOINT=$(grep -F "$PATTERN" available_checkpoints.txt | head -1)
+            MATCHING_CHECKPOINT=$(cat available_checkpoints.json | jq -r ".[] | select(.name | contains(\"$PATTERN\")) | .name" | head -1)
             
+            # Strategy 2: If session ID starts with 's' (thread-based), also look for run-based checkpoints
+            if [ -z "$MATCHING_CHECKPOINT" ] && [ "${PATTERN:0:1}" = "s" ]; then
+              echo "No exact match found. Thread-based session, searching for any recent checkpoints..."
+              
+              # Get the most recent checkpoint (within last 7 days)
+              MATCHING_CHECKPOINT=$(cat available_checkpoints.json | jq -r '.[0].name')
+              if [ -n "$MATCHING_CHECKPOINT" ]; then
+                echo "Found recent checkpoint that might be from same thread: $MATCHING_CHECKPOINT"
+              fi
+            fi
+            
+            # Download the checkpoint if found
             if [ -n "$MATCHING_CHECKPOINT" ]; then
-              echo "Found matching checkpoint: $MATCHING_CHECKPOINT"
-              # Download using gh CLI
-              ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate | \
-                jq -r ".artifacts[] | select(.name == \"$MATCHING_CHECKPOINT\") | .id" | head -1)
+              echo "Attempting to download checkpoint: $MATCHING_CHECKPOINT"
+              ARTIFACT_ID=$(cat available_checkpoints.json | jq -r ".[] | select(.name == \"$MATCHING_CHECKPOINT\") | .id" | head -1)
               
               if [ -n "$ARTIFACT_ID" ]; then
                 echo "Downloading artifact ID: $ARTIFACT_ID"
-                gh api repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip -H "Accept: application/vnd.github+json" > checkpoint.zip
-                unzip -o checkpoint.zip -d outputs/checkpoints/ || true
-                rm -f checkpoint.zip
+                mkdir -p outputs/checkpoints
+                gh api repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip \
+                  -H "Accept: application/vnd.github+json" > checkpoint.zip
+                
+                # Extract and verify
+                if unzip -o checkpoint.zip -d outputs/checkpoints/; then
+                  echo "Checkpoint extracted successfully"
+                  rm -f checkpoint.zip
+                  
+                  # Check if checkpoint contains thread info
+                  if [ -f "outputs/checkpoints/progress.json" ]; then
+                    echo "Checkpoint contents:"
+                    cat outputs/checkpoints/progress.json | jq -r '. | "Session: \(.session_id), Thread: \(.thread_ts // "unknown")"' || true
+                    
+                    # Verify thread match if possible
+                    CHECKPOINT_THREAD=$(cat outputs/checkpoints/progress.json | jq -r '.thread_ts // ""' 2>/dev/null || echo "")
+                    CURRENT_THREAD="${{ github.event.inputs.slack_thread_ts }}"
+                    
+                    if [ -n "$CHECKPOINT_THREAD" ] && [ -n "$CURRENT_THREAD" ]; then
+                      if [ "$CHECKPOINT_THREAD" = "$CURRENT_THREAD" ]; then
+                        echo "✓ Thread match confirmed: checkpoint is from the same thread"
+                      else
+                        echo "⚠ Warning: Checkpoint is from different thread ($CHECKPOINT_THREAD vs $CURRENT_THREAD)"
+                      fi
+                    fi
+                  fi
+                else
+                  echo "Failed to extract checkpoint"
+                  rm -f checkpoint.zip
+                fi
               fi
             else
-              echo "No matching checkpoint found for session: ${{ env.SESSION_ID }}"
+              echo "No suitable checkpoint found"
             fi
           else
-            echo "No checkpoints available"
+            echo "No checkpoints available in repository"
           fi
           
       - name: List checkpoint contents
@@ -252,6 +287,12 @@ jobs:
             - DEBUG: The input session_id is: ${{ github.event.inputs.session_id }}
             - DEBUG: The checkpoint artifact name should be: checkpoint-${{ env.SESSION_ID }}
             
+            **Checkpoint Loading Behavior**:
+            - First tries to load checkpoint-${{ env.SESSION_ID }}
+            - If not found and session is thread-based (starts with 's'), will load most recent checkpoint
+            - Verifies thread match to ensure checkpoint is from same conversation
+            - Always include thread_ts in your checkpoint saves for proper matching
+            
             ### CRITICAL: Tool Call Best Practices to Prevent Errors
             To avoid "tool_use ids were found without tool_result blocks" errors:
             
@@ -298,11 +339,13 @@ jobs:
             Checkpoint format (save to `outputs/checkpoints/progress.json`):
             ```json
             {
-              "version": "1.0",
+              "version": "1.1",
               "workflow_run_id": "${{ github.run_id }}",
               "workflow_run_number": "${{ github.run_number }}",
               "timestamp": "2025-01-01T00:00:00Z",
               "session_id": "[READ FROM outputs/session_id.txt]",
+              "thread_ts": "${{ github.event.inputs.slack_thread_ts }}",
+              "channel": "${{ github.event.inputs.slack_channel }}",
               "phase": "analysis|implementation|testing|finalization",
               "progress_percentage": 25,
               "completed": {
