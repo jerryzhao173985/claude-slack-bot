@@ -435,6 +435,7 @@ jobs:
             - After successful multi-file operations
             - IMMEDIATELY if you detect any complex operation ahead
             - When completing a task or major subtask
+            - **ALWAYS save a final checkpoint with 100% progress after completing ALL tasks and before exiting**
             
             Checkpoint format (save to `outputs/checkpoints/progress.json`):
             ```json
@@ -457,18 +458,35 @@ jobs:
               "completed": {
                 "files_created": ["file1.ts", "file2.ts"],
                 "files_modified": ["file3.ts"],
+                "files_deleted": [],
                 "analysis_complete": true,
-                "pr_branch": "feature/xyz-12345"
+                "implementation_complete": false,
+                "tests_added": false,
+                "tests_passing": false,
+                "pr_branch": "feature/xyz-12345",
+                "pr_created": false,
+                "pr_number": null,
+                "pr_url": null,
+                "documentation_updated": false,
+                "commits_made": ["Initial commit message"],
+                "github_operations": ["created_branch", "pushed_files"],
+                "mcp_tools_used": ["github", "slack"],
+                "errors_encountered": [],
+                "warnings": []
               },
               "pending": {
                 "steps": ["Create PR", "Add tests"],
-                "estimated_turns": 10
+                "estimated_turns": 10,
+                "blockers": [],
+                "next_action": "Create pull request with comprehensive description"
               },
               "context": {
                 "original_request": "${{ github.event.inputs.question }}",
-                "key_findings": "...",
-                "decisions_made": "...",
-                "partial_work": "Description of any incomplete work"
+                "key_findings": "Detailed analysis results...",
+                "decisions_made": "Technical decisions and rationale...",
+                "implementation_details": "What was changed and why...",
+                "partial_work": "Description of any incomplete work",
+                "summary": "High-level summary of progress and accomplishments"
               }
             }
             ```
@@ -477,6 +495,34 @@ jobs:
             1. Read the session ID from outputs/session_id.txt
             2. Include that exact session ID in the checkpoint JSON
             3. This ensures checkpoint can be found when resuming
+            
+            ### Checkpoint Information Gathering:
+            Throughout your work, actively track and update:
+            - **Files**: Keep exact lists of created/modified/deleted files
+            - **GitHub Operations**: Log every branch creation, push, PR operation
+            - **Progress Markers**: Update booleans (analysis_complete, tests_passing, etc.)
+            - **PR Details**: Capture PR number and URL immediately after creation
+            - **Commits**: Track all commit messages made
+            - **Tools Used**: Note which MCP tools were utilized
+            - **Errors/Warnings**: Document any issues encountered
+            - **Context**: Continuously update findings, decisions, implementation details
+            - **Summary**: Maintain a clear high-level summary of accomplishments
+            
+            IMPORTANT: When a PR is created, immediately update checkpoint with:
+            - pr_created: true
+            - pr_number: (actual number)
+            - pr_url: (full URL)
+            - phase: "completed" (if all done)
+            - progress_percentage: 100 (if all done)
+            
+            Progress Percentage Guidelines:
+            - 0-25%: Analysis and understanding phase
+            - 26-75%: Implementation/coding phase
+            - 76-90%: Testing and validation phase
+            - 91-99%: PR creation, documentation phase
+            - 100%: Only when PR is created and all tasks complete
+            - If main work is done but PR pending, use 85-90%
+            - **IMPORTANT: Always save a 100% checkpoint after completing all tasks, including PR creation**
             
             IMPORTANT: If approaching timeout, IMMEDIATELY:
             1. Save current work state to checkpoint
@@ -493,6 +539,7 @@ jobs:
             - When creating branches, use unique names with timestamps: feature/[description]-[timestamp]
             - If branch creation fails due to "already exists", use a different name or timestamp
             - Save checkpoint BEFORE attempting complex GitHub operations
+            - **CRITICAL: Save checkpoint IMMEDIATELY AFTER completing major operations (PR creation, documentation, etc.)**
             
             ### CRITICAL: GitHub File Update Guidelines
             To prevent 10-minute timeouts when updating GitHub files:
@@ -553,6 +600,57 @@ jobs:
               - Save a final checkpoint with exact next steps
               - Include in response: "✅ Made significant progress! I've completed [X]. To finish [Y], just say 'continue'."
               - List what was accomplished and what remains
+            - **CRITICAL: After saving your response, if all tasks are complete, save a final checkpoint with progress_percentage: 100**
+            
+            ### 6. Exit Protocol (CRITICAL)
+            Before ending your session, you MUST follow this protocol:
+            1. Verify all requested tasks are complete
+            2. Save your final response to `outputs/slack_response.txt`
+            3. **ALWAYS save a final checkpoint with:**
+               - progress_percentage: 100 (if all tasks complete) or accurate percentage if partial
+               - phase: "completed" (if 100%) or current phase
+               - pending.steps: [] (empty array if 100%) or list remaining tasks
+               - completed: Include ALL work done (files, PRs, documentation, etc.)
+               - context: Include comprehensive summary of what was accomplished
+            4. Only after saving the final checkpoint can you conclude your work
+            
+            **Example Final Checkpoint (100% complete):**
+            ```json
+            {
+              "progress_percentage": 100,
+              "phase": "completed",
+              "completed": {
+                "files_modified": ["src/Robot.cpp", "include/Robot.h"],
+                "branch_created": "fix/hexapod-robot-construction-20250619",
+                "pr_created": true,
+                "pr_number": 123,
+                "pr_url": "https://github.com/owner/repo/pull/123",
+                "documentation_updated": true,
+                "all_tests_passing": true,
+                "commits_made": ["Fixed hexapod anatomy", "Synced physics with visual model"],
+                "github_operations": ["created_branch", "pushed_files", "created_pr"]
+              },
+              "pending": {
+                "steps": [],
+                "estimated_turns": 0
+              },
+              "context": {
+                "original_request": "Fix hexapod robot simulation...",
+                "summary": "Successfully completed hexapod robot fix: rewrote physics model, created PR #123, updated documentation",
+                "implementation_details": "Complete rewrite of Robot.cpp to match Visualizer's hexapod model"
+              }
+            }
+            ```
+            
+            **Typical Completion Flow:**
+            1. Complete all implementation work → Save checkpoint (75%)
+            2. Run tests/validation → Save checkpoint (85%)
+            3. Create PR using GitHub MCP tool → Save checkpoint (95%)
+            4. Update documentation → Save checkpoint (98%)
+            5. Verify all tasks complete
+            6. Save response to `outputs/slack_response.txt`
+            7. **Save final checkpoint (100%) with all PR details**
+            8. Exit
             
             ### Important Notes
             - The Slack MCP server cannot update messages, only post new ones
@@ -679,7 +777,9 @@ jobs:
             echo "Found execution file at: $EXECUTION_FILE"
             
             # Extract metadata using jq (handle both regular and error_during_execution results)
-            METADATA=$(jq -r 'select(.type == "result") | {
+            # The execution file is in JSONL format (JSON Lines - one JSON per line)
+            # Process each line separately and only select objects with type="result"
+            METADATA=$(cat "$EXECUTION_FILE" | jq -r 'select(type == "object" and .type == "result") | {
               cost: .total_cost_usd,
               duration_ms: .duration_ms,
               duration_api_ms: .duration_api_ms,
@@ -690,7 +790,7 @@ jobs:
               cache_creation_tokens: (.usage.cache_creation_input_tokens // 0),
               is_error: (.is_error // false),
               subtype: (.subtype // "success")
-            }' "$EXECUTION_FILE" | tail -1)
+            }' 2>/dev/null | tail -1)
             
             if [ -n "$METADATA" ] && [ "$METADATA" != "null" ]; then
               # Parse individual fields
