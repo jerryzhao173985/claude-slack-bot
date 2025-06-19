@@ -91,6 +91,16 @@ jobs:
       - name: Download previous checkpoint (if continuing)
         if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null' && github.event.inputs.session_id != 'new-session'
         continue-on-error: true
+        run: |
+          echo "=== Checkpoint Download Debug ==="
+          echo "Input session_id: ${{ github.event.inputs.session_id }}"
+          echo "Env SESSION_ID: ${{ env.SESSION_ID }}"
+          echo "Looking for artifact: checkpoint-${{ env.SESSION_ID }}"
+          echo "================================"
+          
+      - name: Download checkpoint artifact
+        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null' && github.event.inputs.session_id != 'new-session'
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: checkpoint-${{ env.SESSION_ID }}
@@ -107,12 +117,15 @@ jobs:
           
           # List all available artifacts
           gh api repos/${{ github.repository }}/actions/artifacts --paginate | \
-            jq -r '.artifacts[] | select(.name | startswith("checkpoint-")) | .name' | \
-            sort -u > available_checkpoints.txt
+            jq -r '.artifacts[] | select(.name | startswith("checkpoint-")) | {name: .name, created_at: .created_at, expires_at: .expires_at}' | \
+            jq -s '.' > available_checkpoints.json
           
-          if [ -s available_checkpoints.txt ]; then
+          if [ -s available_checkpoints.json ]; then
             echo "Available checkpoints:"
-            cat available_checkpoints.txt
+            cat available_checkpoints.json | jq -r '.[] | "\(.name) (created: \(.created_at), expires: \(.expires_at))"'
+            
+            # Extract just the names for matching
+            cat available_checkpoints.json | jq -r '.[].name' > available_checkpoints.txt
             
             # Try to find a matching checkpoint
             PATTERN="${{ env.SESSION_ID }}"
@@ -136,6 +149,19 @@ jobs:
           else
             echo "No checkpoints available"
           fi
+          
+      - name: List checkpoint contents
+        if: github.event.inputs.session_id != '' && github.event.inputs.session_id != 'null' && github.event.inputs.session_id != 'new-session'
+        continue-on-error: true
+        run: |
+          echo "=== Checkpoint Directory Contents ==="
+          if [ -d "outputs/checkpoints" ]; then
+            echo "outputs/checkpoints exists"
+            ls -la outputs/checkpoints/ || echo "Directory is empty"
+          else
+            echo "outputs/checkpoints directory does not exist"
+          fi
+          echo "==================================="
       
       - name: Start Progress Monitor
         env:
@@ -223,6 +249,8 @@ jobs:
             - If this is a resumed session, check for checkpoint files in `outputs/checkpoints/`
             - Continue from the last checkpoint if available
             - IMPORTANT: Always use the session ID from outputs/session_id.txt in your checkpoints
+            - DEBUG: The input session_id is: ${{ github.event.inputs.session_id }}
+            - DEBUG: The checkpoint artifact name should be: checkpoint-${{ env.SESSION_ID }}
             
             ### CRITICAL: Tool Call Best Practices to Prevent Errors
             To avoid "tool_use ids were found without tool_result blocks" errors:
